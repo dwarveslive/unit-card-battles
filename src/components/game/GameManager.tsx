@@ -72,7 +72,7 @@ export const GameManager: React.FC = () => {
   }, [gameState]);
 
   const handlePlayUnit = useCallback((cardIds: string[]) => {
-    if (!gameState || cardIds.length !== 3) return;
+    if (!gameState || cardIds.length < 3) return;
 
     const newGameState = { ...gameState };
     const currentPlayer = newGameState.players[newGameState.currentPlayerIndex];
@@ -86,7 +86,7 @@ export const GameManager: React.FC = () => {
     if (!canFormUnit(selectedCards)) {
       toast({
         title: "Invalid Unit",
-        description: "Cards must be the same color or include a white card with two of the same color.",
+        description: "Cards must be the same color or include white cards with other cards of the same color (minimum 3 cards).",
         variant: "destructive",
       });
       return;
