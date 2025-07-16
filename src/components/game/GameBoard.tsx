@@ -3,6 +3,7 @@ import { Card } from './Card';
 import { PlayerArea } from './PlayerArea';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { canFormUnit } from '@/utils/gameLogic';
 import { Shuffle, Users, Clock, Zap } from 'lucide-react';
 
 interface GameBoardProps {
@@ -31,7 +32,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
   className
 }) => {
   const currentPlayer = gameState.players[gameState.currentPlayerIndex];
-  const canPlayUnit = selectedCards.length === 3;
+  const canPlayUnit = selectedCards.length >= 3;
   const canAttack = selectedCards.length === 1 && gameState.phase === 'attack';
   const canDiscard = selectedCards.length === 1 && gameState.phase === 'discard';
   
@@ -40,15 +41,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
     currentPlayer.hand.find(card => card.id === id)
   ).filter(Boolean);
   
-  const canFormUnit = selectedCardObjects.length === 3 && (
-    // All same color
-    selectedCardObjects.every(card => card!.color === selectedCardObjects[0]!.color) ||
-    // Contains white and two of same color
-    selectedCardObjects.some(card => card!.color === 'white') &&
-    selectedCardObjects.filter(card => card!.color !== 'white').length === 2 &&
-    selectedCardObjects.filter(card => card!.color !== 'white')
-      .every(card => card!.color === selectedCardObjects.filter(c => c!.color !== 'white')[0]!.color)
-  );
+  const canFormValidUnit = selectedCardObjects.length >= 3 && canFormUnit(selectedCardObjects as any[]);
 
   const getPhaseTitle = () => {
     switch (gameState.phase) {
@@ -82,9 +75,9 @@ export const GameBoard: React.FC<GameBoardProps> = ({
           <div className="flex gap-2">
             <Button 
               onClick={() => onPlayUnit(selectedCards)}
-              disabled={!canFormUnit}
+              disabled={!canFormValidUnit}
             >
-              Play Unit ({selectedCards.length}/3)
+              Play Unit ({selectedCards.length} cards)
             </Button>
             <Button variant="outline" onClick={() => onEndTurn()}>
               Skip to Attack
