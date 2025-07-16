@@ -105,20 +105,20 @@ export const createInitialGameState = (playerNames: string[]): GameState => {
 };
 
 export const canFormUnit = (cards: GameCard[]): boolean => {
-  if (cards.length !== 3) return false;
+  if (cards.length < 3) return false;
   
-  // Check if all cards are the same color
-  const firstColor = cards[0].color;
-  if (cards.every(card => card.color === firstColor)) {
-    return true;
-  }
-  
-  // Check if there's a white card and the other two are the same color
   const whiteCards = cards.filter(card => card.color === 'white');
   const nonWhiteCards = cards.filter(card => card.color !== 'white');
   
-  if (whiteCards.length === 1 && nonWhiteCards.length === 2) {
-    return nonWhiteCards[0].color === nonWhiteCards[1].color;
+  // Check if all cards are the same color
+  if (cards.every(card => card.color === cards[0].color)) {
+    return true;
+  }
+  
+  // Check if there are white cards and all non-white cards are the same color
+  if (whiteCards.length > 0 && nonWhiteCards.length > 0) {
+    const firstNonWhiteColor = nonWhiteCards[0].color;
+    return nonWhiteCards.every(card => card.color === firstNonWhiteColor);
   }
   
   return false;
