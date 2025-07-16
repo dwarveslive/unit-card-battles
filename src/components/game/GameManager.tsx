@@ -1,0 +1,413 @@
+import React, { useState, useCallback } from 'react';
+import { GameState, BattleState, DrawChoice, GameCard, Unit } from '@/types/game';
+import { GameBoard } from './GameBoard';
+import { BattleModal } from './BattleModal';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { useToast } from '@/hooks/use-toast';
+import {
+  createInitialGameState,
+  canFormUnit,
+  createUnit,
+  calculateTotalValue,
+  checkWinCondition,
+  getAvailableCards,
+  resolveBattle
+} from '@/utils/gameLogic';
+import { cn } from '@/lib/utils';
+import { Users, Play, Trophy } from 'lucide-react';
+
+export const GameManager: React.FC = () => {
+  const [gameState, setGameState] = useState<GameState | null>(null);
+  const [battleState, setBattleState] = useState<BattleState | null>(null);
+  const [selectedCards, setSelectedCards] = useState<string[]>([]);
+  const [selectedUnit, setSelectedUnit] = useState<string | null>(null);
+  const [playerNames, setPlayerNames] = useState<string[]>(['Player 1', 'Player 2']);
+  const [gameSetup, setGameSetup] = useState(true);
+  const { toast } = useToast();
+
+  const startGame = useCallback(() => {
+    try {
+      const initialState = createInitialGameState(playerNames.filter(name => name.trim()));
+      setGameState(initialState);
+      setGameSetup(false);
+      toast({
+        title: "Game Started!",
+        description: `${playerNames.length} players are ready to battle!`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: (error as Error).message,
+        variant: "destructive",
+      });
+    }
+  }, [playerNames, toast]);
+
+  const handleDrawCards = useCallback((choice: DrawChoice) => {
+    if (!gameState) return;
+
+    const newGameState = { ...gameState };
+    const currentPlayer = newGameState.players[newGameState.currentPlayerIndex];
+    
+    // Draw from deck
+    for (let i = 0; i < choice.deckCount; i++) {
+      if (newGameState.deck.length > 0) {
+        const card = newGameState.deck.pop()!;
+        currentPlayer.hand.push(card);
+      }
+    }
+    
+    // Draw from discard pile
+    for (let i = 0; i < choice.discardCount; i++) {
+      if (newGameState.discardPile.length > 0) {
+        const card = newGameState.discardPile.pop()!;
+        currentPlayer.hand.push(card);
+      }
+    }
+    
+    newGameState.phase = 'play';
+    setGameState(newGameState);
+    setSelectedCards([]);
+  }, [gameState]);
+
+  const handlePlayUnit = useCallback((cardIds: string[]) => {
+    if (!gameState || cardIds.length !== 3) return;
+
+    const newGameState = { ...gameState };
+    const currentPlayer = newGameState.players[newGameState.currentPlayerIndex];
+    
+    // Get the selected cards
+    const selectedCards = cardIds.map(id => 
+      currentPlayer.hand.find(card => card.id === id)!
+    );
+    
+    // Check if cards can form a unit
+    if (!canFormUnit(selectedCards)) {
+      toast({
+        title: "Invalid Unit",
+        description: "Cards must be the same color or include a white card with two of the same color.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Remove cards from hand
+    currentPlayer.hand = currentPlayer.hand.filter(card => !cardIds.includes(card.id));
+    
+    // Create unit
+    const unit = createUnit(selectedCards, currentPlayer.id);
+    currentPlayer.units.push(unit);
+    
+    // Check win condition
+    const { winner, finalTurnTriggered } = checkWinCondition(newGameState.players);
+    if (finalTurnTriggered && !newGameState.finalTurnTrigger) {
+      newGameState.finalTurnTrigger = currentPlayer.id;
+      newGameState.finalTurnRemaining = newGameState.players.length - 1;
+    }
+    
+    newGameState.phase = 'attack';
+    setGameState(newGameState);
+    setSelectedCards([]);
+    
+    toast({
+      title: "Unit Played!",
+      description: `Created unit with value ${unit.totalValue}`,
+    });
+  }, [gameState, toast]);
+
+  const handleAttackUnit = useCallback((attackerCardId: string, targetUnitId: string) => {
+    if (!gameState) return;
+
+    const currentPlayer = gameState.players[gameState.currentPlayerIndex];
+    const targetUnit = gameState.players
+      .flatMap(p => p.units)
+      .find(u => u.id === targetUnitId);
+    
+    if (!targetUnit) return;
+
+    // Find attacker card
+    const attackerCard = currentPlayer.hand.find(c => c.id === attackerCardId) ||
+                        currentPlayer.units.flatMap(u => u.cards).find(c => c.id === attackerCardId);
+    
+    if (!attackerCard) return;
+
+    const fromHand = currentPlayer.hand.some(c => c.id === attackerCardId);
+    const targetPlayer = gameState.players.find(p => p.id === targetUnit.playerId)!;
+    
+    // Set up battle
+    setBattleState({
+      attacker: {
+        playerId: currentPlayer.id,
+        card: attackerCard,
+        fromHand
+      },
+      defender: {
+        playerId: targetPlayer.id
+      },
+      targetUnit,
+      isActive: true
+    });
+  }, [gameState]);
+
+  const handleDefend = useCallback((cardId: string, fromHand: boolean) => {
+    if (!battleState) return;
+
+    const defenderPlayer = gameState!.players.find(p => p.id === battleState.defender.playerId)!;
+    const defenderCard = fromHand 
+      ? defenderPlayer.hand.find(c => c.id === cardId)
+      : defenderPlayer.units.flatMap(u => u.cards).find(c => c.id === cardId);
+    
+    if (!defenderCard) return;
+
+    setBattleState({
+      ...battleState,
+      defender: {
+        ...battleState.defender,
+        card: defenderCard,
+        fromHand
+      }
+    });
+  }, [battleState, gameState]);
+
+  const handleResolveBattle = useCallback(() => {
+    if (!battleState || !gameState || !battleState.defender.card) return;
+
+    const result = resolveBattle(
+      battleState.attacker.card,
+      battleState.defender.card,
+      battleState.attacker.fromHand,
+      battleState.defender.fromHand!
+    );
+
+    const newGameState = { ...gameState };
+    const attackerPlayer = newGameState.players.find(p => p.id === battleState.attacker.playerId)!;
+    const defenderPlayer = newGameState.players.find(p => p.id === battleState.defender.playerId)!;
+
+    if (result.winner === 'attacker') {
+      // Attacker wins - can kill or kidnap from target unit
+      // For now, just remove a random card from the target unit
+      const targetUnit = defenderPlayer.units.find(u => u.id === battleState.targetUnit.id)!;
+      if (targetUnit.cards.length > 0) {
+        const removedCard = targetUnit.cards.pop()!;
+        attackerPlayer.hand.push(removedCard); // Kidnap
+        targetUnit.totalValue -= removedCard.value;
+        
+        // If unit is empty, remove it
+        if (targetUnit.cards.length === 0) {
+          defenderPlayer.units = defenderPlayer.units.filter(u => u.id !== targetUnit.id);
+        }
+      }
+    }
+
+    // Move battle cards to appropriate places
+    if (battleState.attacker.fromHand) {
+      attackerPlayer.hand = attackerPlayer.hand.filter(c => c.id !== battleState.attacker.card.id);
+      attackerPlayer.graveyard.push(battleState.attacker.card);
+    }
+    
+    if (battleState.defender.fromHand) {
+      defenderPlayer.hand = defenderPlayer.hand.filter(c => c.id !== battleState.defender.card.id);
+      defenderPlayer.graveyard.push(battleState.defender.card);
+    }
+
+    setGameState(newGameState);
+    setBattleState(null);
+    setSelectedCards([]);
+
+    toast({
+      title: "Battle Resolved!",
+      description: `${result.winner === 'attacker' ? 'Attacker' : 'Defender'} wins!`,
+    });
+  }, [battleState, gameState, toast]);
+
+  const handleDiscardCard = useCallback((cardId: string) => {
+    if (!gameState) return;
+
+    const newGameState = { ...gameState };
+    const currentPlayer = newGameState.players[newGameState.currentPlayerIndex];
+    
+    const card = currentPlayer.hand.find(c => c.id === cardId);
+    if (!card) return;
+
+    // Remove from hand and add to discard pile
+    currentPlayer.hand = currentPlayer.hand.filter(c => c.id !== cardId);
+    newGameState.discardPile.push(card);
+    
+    // End turn
+    newGameState.currentPlayerIndex = (newGameState.currentPlayerIndex + 1) % newGameState.players.length;
+    newGameState.phase = 'draw';
+    
+    if (newGameState.finalTurnTrigger) {
+      newGameState.finalTurnRemaining--;
+      if (newGameState.finalTurnRemaining <= 0) {
+        newGameState.gameEnded = true;
+      }
+    }
+    
+    setGameState(newGameState);
+    setSelectedCards([]);
+  }, [gameState]);
+
+  const handleEndTurn = useCallback(() => {
+    if (!gameState) return;
+
+    const newGameState = { ...gameState };
+    
+    if (newGameState.phase === 'play') {
+      newGameState.phase = 'attack';
+    } else if (newGameState.phase === 'attack') {
+      newGameState.phase = 'discard';
+    }
+    
+    setGameState(newGameState);
+    setSelectedCards([]);
+  }, [gameState]);
+
+  const handleCardSelect = useCallback((cardId: string) => {
+    setSelectedCards(prev => 
+      prev.includes(cardId) 
+        ? prev.filter(id => id !== cardId)
+        : [...prev, cardId]
+    );
+  }, []);
+
+  const handleUnitSelect = useCallback((unitId: string) => {
+    setSelectedUnit(unitId);
+  }, []);
+
+  const addPlayer = () => {
+    if (playerNames.length < 6) {
+      setPlayerNames([...playerNames, `Player ${playerNames.length + 1}`]);
+    }
+  };
+
+  const removePlayer = (index: number) => {
+    if (playerNames.length > 2) {
+      setPlayerNames(playerNames.filter((_, i) => i !== index));
+    }
+  };
+
+  const updatePlayerName = (index: number, name: string) => {
+    const newNames = [...playerNames];
+    newNames[index] = name;
+    setPlayerNames(newNames);
+  };
+
+  if (gameSetup) {
+    return (
+      <div className="min-h-screen bg-gradient-table flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-gradient-card rounded-lg border p-6 shadow-card">
+          <div className="flex items-center gap-2 mb-6">
+            <Users className="w-6 h-6 text-primary" />
+            <h1 className="text-2xl font-bold text-foreground">Card Battle Setup</h1>
+          </div>
+          
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-semibold text-muted-foreground mb-2 block">
+                Players ({playerNames.length}/6)
+              </label>
+              <div className="space-y-2">
+                {playerNames.map((name, index) => (
+                  <div key={index} className="flex gap-2">
+                    <Input
+                      value={name}
+                      onChange={(e) => updatePlayerName(index, e.target.value)}
+                      placeholder={`Player ${index + 1}`}
+                      className="flex-1"
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => removePlayer(index)}
+                      disabled={playerNames.length <= 2}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                onClick={addPlayer}
+                disabled={playerNames.length >= 6}
+                className="flex-1"
+              >
+                Add Player
+              </Button>
+              <Button 
+                onClick={startGame}
+                className="flex-1 bg-primary hover:bg-primary/90"
+              >
+                <Play className="w-4 h-4 mr-2" />
+                Start Game
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!gameState) return null;
+
+  if (gameState.gameEnded) {
+    const winner = gameState.players.reduce((prev, current) => 
+      calculateTotalValue(current) > calculateTotalValue(prev) ? current : prev
+    );
+    
+    return (
+      <div className="min-h-screen bg-gradient-table flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-gradient-card rounded-lg border p-6 shadow-card text-center">
+          <Trophy className="w-16 h-16 text-accent mx-auto mb-4" />
+          <h1 className="text-3xl font-bold text-foreground mb-2">Game Over!</h1>
+          <p className="text-xl text-primary mb-4">
+            {winner.name} wins with {calculateTotalValue(winner)} points!
+          </p>
+          <Button onClick={() => setGameSetup(true)} className="w-full">
+            Play Again
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  const defenderCards = battleState ? (() => {
+    const defender = gameState.players.find(p => p.id === battleState.defender.playerId)!;
+    const availableCards = getAvailableCards(defender);
+    return [
+      ...availableCards.hand.map(card => ({ id: card.id, card, fromHand: true })),
+      ...availableCards.units.map(card => ({ id: card.id, card, fromHand: false }))
+    ];
+  })() : [];
+
+  return (
+    <div className="min-h-screen">
+      <GameBoard
+        gameState={gameState}
+        onDrawCards={handleDrawCards}
+        onPlayUnit={handlePlayUnit}
+        onAttackUnit={handleAttackUnit}
+        onDiscardCard={handleDiscardCard}
+        onEndTurn={handleEndTurn}
+        selectedCards={selectedCards}
+        onCardSelect={handleCardSelect}
+        onUnitSelect={handleUnitSelect}
+      />
+      
+      {battleState && (
+        <BattleModal
+          battleState={battleState}
+          onDefend={handleDefend}
+          onResolveBattle={handleResolveBattle}
+          onCancelBattle={() => setBattleState(null)}
+          defenderCards={defenderCards}
+        />
+      )}
+    </div>
+  );
+};
