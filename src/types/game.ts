@@ -29,7 +29,7 @@ export interface GameState {
   currentPlayerIndex: number;
   deck: GameCard[];
   discardPile: GameCard[];
-  phase: 'draw' | 'play' | 'attack' | 'discard';
+  phase: 'draw' | 'play' | 'attack' | 'reinforce' | 'discard';
   gameEnded: boolean;
   winner?: string;
   finalTurnTrigger?: string; // player who triggered final turn

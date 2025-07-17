@@ -16,6 +16,7 @@ interface GameBoardProps {
   selectedCards: string[];
   onCardSelect: (cardId: string) => void;
   onUnitSelect: (unitId: string) => void;
+  onReinforceUnit: (cardId: string, unitId: string) => void;
   attackUsed?: boolean;
   className?: string;
 }
@@ -30,6 +31,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
   selectedCards,
   onCardSelect,
   onUnitSelect,
+  onReinforceUnit,
   attackUsed = false,
   className
 }) => {
@@ -50,6 +52,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
       case 'draw': return 'Draw Phase';
       case 'play': return 'Play Phase';
       case 'attack': return 'Attack Phase';
+      case 'reinforce': return 'Reinforce Phase';
       case 'discard': return 'Discard Phase';
       default: return 'Game Phase';
     }
@@ -96,6 +99,20 @@ export const GameBoard: React.FC<GameBoardProps> = ({
                 : selectedCards.length === 1 
                   ? "Select an enemy unit to attack" 
                   : "Select one card to attack with"}
+            </div>
+            <Button variant="outline" onClick={() => onEndTurn()}>
+              Skip to Reinforce
+            </Button>
+          </div>
+        );
+      
+      case 'reinforce':
+        return (
+          <div className="flex gap-2">
+            <div className="text-sm text-muted-foreground">
+              {selectedCards.length === 1 
+                ? "Select a unit to reinforce with this card" 
+                : "Select one card from your hand to add to a unit"}
             </div>
             <Button variant="outline" onClick={() => onEndTurn()}>
               Skip to Discard
@@ -207,6 +224,9 @@ export const GameBoard: React.FC<GameBoardProps> = ({
               // In attack phase, if attacker has selected a card and hasn't used attack, clicking enemy unit attacks it
               if (gameState.phase === 'attack' && selectedCards.length === 1 && index !== gameState.currentPlayerIndex && !attackUsed) {
                 onAttackUnit(selectedCards[0], unitId);
+              } else if (gameState.phase === 'reinforce' && selectedCards.length === 1) {
+                // In reinforce phase, clicking any unit with a selected card reinforces it
+                onReinforceUnit(selectedCards[0], unitId);
               } else {
                 onUnitSelect(unitId);
               }

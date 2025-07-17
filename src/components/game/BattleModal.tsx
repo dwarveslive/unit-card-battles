@@ -105,20 +105,45 @@ export const BattleModal: React.FC<BattleModalProps> = ({
                   </div>
                 </div>
                 
-                <div className="space-y-2">
-                  <h4 className="text-sm font-semibold text-muted-foreground">
-                    Available Defense Cards:
-                  </h4>
-                  <div className="flex flex-wrap gap-2">
-                    {defenderCards.map(({ id, card, fromHand }) => (
-                      <Card
-                        key={id}
-                        card={card}
-                        size="small"
-                        onClick={() => onDefend(id, fromHand)}
-                        className="hover:scale-110 cursor-pointer"
-                      />
-                    ))}
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-semibold text-muted-foreground">
+                      Hand Cards (Face Down):
+                    </h4>
+                    <div className="flex flex-wrap gap-2 min-h-[3rem] p-2 bg-muted/10 rounded border-dashed border">
+                      {defenderCards.filter(({ fromHand }) => fromHand).map(({ id, card, fromHand }) => (
+                        <Card
+                          key={id}
+                          card={card}
+                          size="small"
+                          onClick={() => onDefend(id, fromHand)}
+                          className="hover:scale-110 cursor-pointer"
+                        />
+                      ))}
+                      {defenderCards.filter(({ fromHand }) => fromHand).length === 0 && (
+                        <div className="text-xs text-muted-foreground italic">No cards in hand</div>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-semibold text-muted-foreground">
+                      Unit Cards (Face Up):
+                    </h4>
+                    <div className="flex flex-wrap gap-2 min-h-[3rem] p-2 bg-muted/10 rounded border-dashed border">
+                      {defenderCards.filter(({ fromHand }) => !fromHand).map(({ id, card, fromHand }) => (
+                        <Card
+                          key={id}
+                          card={card}
+                          size="small"
+                          onClick={() => onDefend(id, fromHand)}
+                          className="hover:scale-110 cursor-pointer"
+                        />
+                      ))}
+                      {defenderCards.filter(({ fromHand }) => !fromHand).length === 0 && (
+                        <div className="text-xs text-muted-foreground italic">No unit cards available</div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>

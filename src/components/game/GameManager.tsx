@@ -13,7 +13,8 @@ import {
   calculateTotalValue,
   checkWinCondition,
   getAvailableCards,
-  resolveBattle
+  resolveBattle,
+  canAddCardToUnit
 } from '@/utils/gameLogic';
 import { cn } from '@/lib/utils';
 import { Users, Play, Trophy } from 'lucide-react';
@@ -210,6 +211,9 @@ export const GameManager: React.FC = () => {
       defenderPlayer.graveyard.push(battleState.defender.card);
     }
 
+    // After attack, go to reinforce phase instead of discard
+    newGameState.phase = 'reinforce';
+
     setGameState(newGameState);
     setBattleState(null);
     setSelectedCards([]);
@@ -252,6 +256,9 @@ export const GameManager: React.FC = () => {
       defenderPlayer.graveyard.push(battleState.defender.card);
     }
 
+    // After attack, go to reinforce phase instead of discard
+    newGameState.phase = 'reinforce';
+
     setGameState(newGameState);
     setBattleState(null);
     setKidnapChoice(null);
@@ -278,8 +285,12 @@ export const GameManager: React.FC = () => {
     
     if (battleState.defender.fromHand) {
       defenderPlayer.hand = defenderPlayer.hand.filter(c => c.id !== battleState.defender.card.id);
+      // Since attacker won but skipped kidnap, defending card goes to defender's graveyard
       defenderPlayer.graveyard.push(battleState.defender.card);
     }
+
+    // After attack, go to reinforce phase instead of discard
+    newGameState.phase = 'reinforce';
 
     setGameState(newGameState);
     setBattleState(null);
@@ -288,9 +299,49 @@ export const GameManager: React.FC = () => {
 
     toast({
       title: "Battle Resolved!",
-      description: "Attacker wins but chose not to kidnap any cards.",
+      description: "Attacker wins but chose not to kidnap any cards. Defending card goes to graveyard.",
     });
   }, [battleState, gameState, toast]);
+
+  const handleReinforceUnit = useCallback((cardId: string, unitId: string) => {
+    if (!gameState) return;
+
+    const newGameState = { ...gameState };
+    const currentPlayer = newGameState.players[newGameState.currentPlayerIndex];
+    
+    // Find the card and unit
+    const card = currentPlayer.hand.find(c => c.id === cardId);
+    const targetUnit = newGameState.players
+      .flatMap(p => p.units)
+      .find(u => u.id === unitId);
+    
+    if (!card || !targetUnit) return;
+
+    // Check if card can be added to unit
+    if (!canAddCardToUnit(card, targetUnit)) {
+      toast({
+        title: "Invalid Reinforcement",
+        description: "This card cannot be added to the selected unit due to color restrictions.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Add card to unit
+    targetUnit.cards.push(card);
+    targetUnit.totalValue += card.value;
+    
+    // Remove card from hand
+    currentPlayer.hand = currentPlayer.hand.filter(c => c.id !== cardId);
+
+    setGameState(newGameState);
+    setSelectedCards([]);
+
+    toast({
+      title: "Unit Reinforced!",
+      description: `Added ${card.color} ${card.value} to unit.`,
+    });
+  }, [gameState, toast]);
 
   const handleDiscardCard = useCallback((cardId: string) => {
     if (!gameState) return;
@@ -330,6 +381,8 @@ export const GameManager: React.FC = () => {
       newGameState.phase = 'attack';
       setAttackUsed(false); // Reset attack for new attack phase
     } else if (newGameState.phase === 'attack') {
+      newGameState.phase = 'reinforce';
+    } else if (newGameState.phase === 'reinforce') {
       newGameState.phase = 'discard';
     }
     
@@ -470,6 +523,7 @@ export const GameManager: React.FC = () => {
         selectedCards={selectedCards}
         onCardSelect={handleCardSelect}
         onUnitSelect={handleUnitSelect}
+        onReinforceUnit={handleReinforceUnit}
         attackUsed={attackUsed}
       />
       
