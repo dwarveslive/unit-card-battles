@@ -16,6 +16,7 @@ interface GameBoardProps {
   selectedCards: string[];
   onCardSelect: (cardId: string) => void;
   onUnitSelect: (unitId: string) => void;
+  attackUsed?: boolean;
   className?: string;
 }
 
@@ -29,6 +30,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
   selectedCards,
   onCardSelect,
   onUnitSelect,
+  attackUsed = false,
   className
 }) => {
   const currentPlayer = gameState.players[gameState.currentPlayerIndex];
@@ -89,9 +91,11 @@ export const GameBoard: React.FC<GameBoardProps> = ({
         return (
           <div className="flex gap-2">
             <div className="text-sm text-muted-foreground">
-              {selectedCards.length === 1 
-                ? "Select an enemy unit to attack" 
-                : "Select one card to attack with"}
+              {attackUsed 
+                ? "Attack already used this turn" 
+                : selectedCards.length === 1 
+                  ? "Select an enemy unit to attack" 
+                  : "Select one card to attack with"}
             </div>
             <Button variant="outline" onClick={() => onEndTurn()}>
               Skip to Discard
@@ -200,8 +204,8 @@ export const GameBoard: React.FC<GameBoardProps> = ({
             isCurrentPlayer={index === gameState.currentPlayerIndex}
             onCardClick={onCardSelect}
             onUnitClick={(unitId) => {
-              // In attack phase, if attacker has selected a card, clicking enemy unit attacks it
-              if (gameState.phase === 'attack' && selectedCards.length === 1 && index !== gameState.currentPlayerIndex) {
+              // In attack phase, if attacker has selected a card and hasn't used attack, clicking enemy unit attacks it
+              if (gameState.phase === 'attack' && selectedCards.length === 1 && index !== gameState.currentPlayerIndex && !attackUsed) {
                 onAttackUnit(selectedCards[0], unitId);
               } else {
                 onUnitSelect(unitId);

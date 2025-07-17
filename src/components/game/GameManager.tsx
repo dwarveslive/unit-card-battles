@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { GameState, BattleState, DrawChoice, GameCard, Unit } from '@/types/game';
 import { GameBoard } from './GameBoard';
 import { BattleModal } from './BattleModal';
+import { KidnapModal } from './KidnapModal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
@@ -24,6 +25,8 @@ export const GameManager: React.FC = () => {
   const [selectedUnit, setSelectedUnit] = useState<string | null>(null);
   const [playerNames, setPlayerNames] = useState<string[]>(['Player 1', 'Player 2']);
   const [gameSetup, setGameSetup] = useState(true);
+  const [attackUsed, setAttackUsed] = useState(false);
+  const [kidnapChoice, setKidnapChoice] = useState<{ targetUnit: Unit; availableCards: GameCard[] } | null>(null);
   const { toast } = useToast();
 
   const startGame = useCallback(() => {
@@ -117,7 +120,7 @@ export const GameManager: React.FC = () => {
   }, [gameState, toast]);
 
   const handleAttackUnit = useCallback((attackerCardId: string, targetUnitId: string) => {
-    if (!gameState) return;
+    if (!gameState || attackUsed) return;
 
     const currentPlayer = gameState.players[gameState.currentPlayerIndex];
     const targetUnit = gameState.players
@@ -148,7 +151,9 @@ export const GameManager: React.FC = () => {
       targetUnit,
       isActive: true
     });
-  }, [gameState]);
+    
+    setAttackUsed(true);
+  }, [gameState, attackUsed]);
 
   const handleDefend = useCallback((cardId: string, fromHand: boolean) => {
     if (!battleState) return;
@@ -185,18 +190,12 @@ export const GameManager: React.FC = () => {
     const defenderPlayer = newGameState.players.find(p => p.id === battleState.defender.playerId)!;
 
     if (result.winner === 'attacker') {
-      // Attacker wins - can kill or kidnap from target unit
-      // For now, just remove a random card from the target unit
+      // Attacker wins - let them choose which card to kidnap from target unit
       const targetUnit = defenderPlayer.units.find(u => u.id === battleState.targetUnit.id)!;
       if (targetUnit.cards.length > 0) {
-        const removedCard = targetUnit.cards.pop()!;
-        attackerPlayer.hand.push(removedCard); // Kidnap
-        targetUnit.totalValue -= removedCard.value;
-        
-        // If unit is empty, remove it
-        if (targetUnit.cards.length === 0) {
-          defenderPlayer.units = defenderPlayer.units.filter(u => u.id !== targetUnit.id);
-        }
+        setKidnapChoice({ targetUnit, availableCards: [...targetUnit.cards] });
+        // Don't resolve battle yet - wait for kidnap choice
+        return;
       }
     }
 
@@ -221,6 +220,78 @@ export const GameManager: React.FC = () => {
     });
   }, [battleState, gameState, toast]);
 
+  const handleKidnapChoice = useCallback((cardId: string) => {
+    if (!battleState || !gameState || !kidnapChoice) return;
+
+    const newGameState = { ...gameState };
+    const attackerPlayer = newGameState.players.find(p => p.id === battleState.attacker.playerId)!;
+    const defenderPlayer = newGameState.players.find(p => p.id === battleState.defender.playerId)!;
+    const targetUnit = defenderPlayer.units.find(u => u.id === battleState.targetUnit.id)!;
+
+    // Find and remove the chosen card from the target unit
+    const cardToKidnap = targetUnit.cards.find(c => c.id === cardId)!;
+    targetUnit.cards = targetUnit.cards.filter(c => c.id !== cardId);
+    targetUnit.totalValue -= cardToKidnap.value;
+    
+    // Add to attacker's hand
+    attackerPlayer.hand.push(cardToKidnap);
+    
+    // If unit is empty, remove it
+    if (targetUnit.cards.length === 0) {
+      defenderPlayer.units = defenderPlayer.units.filter(u => u.id !== targetUnit.id);
+    }
+
+    // Move battle cards to appropriate places
+    if (battleState.attacker.fromHand) {
+      attackerPlayer.hand = attackerPlayer.hand.filter(c => c.id !== battleState.attacker.card.id);
+      attackerPlayer.graveyard.push(battleState.attacker.card);
+    }
+    
+    if (battleState.defender.fromHand) {
+      defenderPlayer.hand = defenderPlayer.hand.filter(c => c.id !== battleState.defender.card.id);
+      defenderPlayer.graveyard.push(battleState.defender.card);
+    }
+
+    setGameState(newGameState);
+    setBattleState(null);
+    setKidnapChoice(null);
+    setSelectedCards([]);
+
+    toast({
+      title: "Battle Resolved!",
+      description: `Attacker wins and kidnapped a ${cardToKidnap.color} ${cardToKidnap.value}!`,
+    });
+  }, [battleState, gameState, kidnapChoice, toast]);
+
+  const handleSkipKidnap = useCallback(() => {
+    if (!battleState || !gameState) return;
+
+    const newGameState = { ...gameState };
+    const attackerPlayer = newGameState.players.find(p => p.id === battleState.attacker.playerId)!;
+    const defenderPlayer = newGameState.players.find(p => p.id === battleState.defender.playerId)!;
+
+    // Move battle cards to appropriate places without kidnapping
+    if (battleState.attacker.fromHand) {
+      attackerPlayer.hand = attackerPlayer.hand.filter(c => c.id !== battleState.attacker.card.id);
+      attackerPlayer.graveyard.push(battleState.attacker.card);
+    }
+    
+    if (battleState.defender.fromHand) {
+      defenderPlayer.hand = defenderPlayer.hand.filter(c => c.id !== battleState.defender.card.id);
+      defenderPlayer.graveyard.push(battleState.defender.card);
+    }
+
+    setGameState(newGameState);
+    setBattleState(null);
+    setKidnapChoice(null);
+    setSelectedCards([]);
+
+    toast({
+      title: "Battle Resolved!",
+      description: "Attacker wins but chose not to kidnap any cards.",
+    });
+  }, [battleState, gameState, toast]);
+
   const handleDiscardCard = useCallback((cardId: string) => {
     if (!gameState) return;
 
@@ -237,6 +308,7 @@ export const GameManager: React.FC = () => {
     // End turn
     newGameState.currentPlayerIndex = (newGameState.currentPlayerIndex + 1) % newGameState.players.length;
     newGameState.phase = 'draw';
+    setAttackUsed(false); // Reset attack for new turn
     
     if (newGameState.finalTurnTrigger) {
       newGameState.finalTurnRemaining--;
@@ -256,6 +328,7 @@ export const GameManager: React.FC = () => {
     
     if (newGameState.phase === 'play') {
       newGameState.phase = 'attack';
+      setAttackUsed(false); // Reset attack for new attack phase
     } else if (newGameState.phase === 'attack') {
       newGameState.phase = 'discard';
     }
@@ -397,6 +470,7 @@ export const GameManager: React.FC = () => {
         selectedCards={selectedCards}
         onCardSelect={handleCardSelect}
         onUnitSelect={handleUnitSelect}
+        attackUsed={attackUsed}
       />
       
       {battleState && (
@@ -406,6 +480,15 @@ export const GameManager: React.FC = () => {
           onResolveBattle={handleResolveBattle}
           onCancelBattle={() => setBattleState(null)}
           defenderCards={defenderCards}
+        />
+      )}
+      
+      {kidnapChoice && (
+        <KidnapModal
+          isOpen={!!kidnapChoice}
+          availableCards={kidnapChoice.availableCards}
+          onKidnapChoice={handleKidnapChoice}
+          onSkip={handleSkipKidnap}
         />
       )}
     </div>
