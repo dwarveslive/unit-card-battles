@@ -88,12 +88,11 @@ export const GameBoard: React.FC<GameBoardProps> = ({
       case 'attack':
         return (
           <div className="flex gap-2">
-            <Button 
-              onClick={() => {/* Handle attack */}}
-              disabled={!canAttack}
-            >
-              Attack with Selected Card
-            </Button>
+            <div className="text-sm text-muted-foreground">
+              {selectedCards.length === 1 
+                ? "Select an enemy unit to attack" 
+                : "Select one card to attack with"}
+            </div>
             <Button variant="outline" onClick={() => onEndTurn()}>
               Skip to Discard
             </Button>
@@ -200,7 +199,14 @@ export const GameBoard: React.FC<GameBoardProps> = ({
             player={player}
             isCurrentPlayer={index === gameState.currentPlayerIndex}
             onCardClick={onCardSelect}
-            onUnitClick={onUnitSelect}
+            onUnitClick={(unitId) => {
+              // In attack phase, if attacker has selected a card, clicking enemy unit attacks it
+              if (gameState.phase === 'attack' && selectedCards.length === 1 && index !== gameState.currentPlayerIndex) {
+                onAttackUnit(selectedCards[0], unitId);
+              } else {
+                onUnitSelect(unitId);
+              }
+            }}
             selectedCards={selectedCards}
           />
         ))}
