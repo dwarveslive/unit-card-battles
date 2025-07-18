@@ -219,8 +219,10 @@ export const GameBoard: React.FC<GameBoardProps> = ({
             key={player.id}
             player={player}
             isCurrentPlayer={index === gameState.currentPlayerIndex}
-            onCardClick={onCardSelect}
-            onUnitClick={(unitId) => {
+            canAttack={canAttack && index !== gameState.currentPlayerIndex}
+            selectedCardId={selectedCards[0]}
+            onCardSelect={onCardSelect}
+            onUnitSelect={(unitId) => {
               // In attack phase, if attacker has selected a card and hasn't used attack, clicking enemy unit attacks it
               if (gameState.phase === 'attack' && selectedCards.length === 1 && index !== gameState.currentPlayerIndex && !attackUsed) {
                 onAttackUnit(selectedCards[0], unitId);
@@ -231,7 +233,8 @@ export const GameBoard: React.FC<GameBoardProps> = ({
                 onUnitSelect(unitId);
               }
             }}
-            selectedCards={selectedCards}
+            onAttackUnit={onAttackUnit}
+            onReinforceUnit={onReinforceUnit}
           />
         ))}
       </div>

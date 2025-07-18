@@ -1,105 +1,147 @@
 import { Player, Unit } from '@/types/game';
 import { Card } from './Card';
+import { GraveyardViewer } from './GraveyardViewer';
 import { cn } from '@/lib/utils';
-import { Users, Skull, Sparkles } from 'lucide-react';
+import { Crown, Users, Plus, Trophy } from 'lucide-react';
+import { calculateGraveyardValue, calculatePlayerScore } from '@/utils/gameLogic';
 
 interface PlayerAreaProps {
   player: Player;
   isCurrentPlayer: boolean;
-  onCardClick?: (cardId: string) => void;
-  onUnitClick?: (unitId: string) => void;
-  selectedCards?: string[];
+  canAttack: boolean;
+  selectedCardId?: string;
+  onCardSelect?: (cardId: string) => void;
+  onUnitSelect?: (unitId: string) => void;
+  onAttackUnit?: (attackerCardId: string, targetUnitId: string) => void;
+  onReinforceUnit?: (cardId: string, unitId: string) => void;
   className?: string;
 }
 
 export const PlayerArea: React.FC<PlayerAreaProps> = ({
   player,
   isCurrentPlayer,
-  onCardClick,
-  onUnitClick,
-  selectedCards = [],
+  canAttack,
+  selectedCardId,
+  onCardSelect,
+  onUnitSelect,
+  onAttackUnit,
+  onReinforceUnit,
   className
 }) => {
   const totalValue = player.units.reduce((sum, unit) => sum + unit.totalValue, 0);
-  const isCloseToWin = totalValue >= 40;
-  const hasWon = totalValue >= 50;
+  const graveyardValue = calculateGraveyardValue(player.graveyard);
+  const playerScore = calculatePlayerScore(player);
 
   return (
     <div className={cn(
-      'relative p-4 rounded-lg border-2 bg-gradient-card',
-      isCurrentPlayer ? 'border-primary shadow-glow' : 'border-border',
-      hasWon && 'border-accent shadow-battle',
+      'p-4 rounded-lg border transition-all duration-300',
+      isCurrentPlayer 
+        ? 'bg-gradient-primary/10 border-primary shadow-glow' 
+        : 'bg-gradient-card border-border',
       className
     )}>
-      {/* Player header */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <Users className="w-5 h-5 text-foreground" />
+          {isCurrentPlayer && <Crown className="w-5 h-5 text-primary animate-glow" />}
           <h3 className={cn(
-            'text-lg font-bold',
+            'font-semibold',
             isCurrentPlayer ? 'text-primary' : 'text-foreground'
           )}>
             {player.name}
           </h3>
-          {isCurrentPlayer && (
-            <Sparkles className="w-4 h-4 text-primary animate-pulse-glow" />
-          )}
+          <div className="flex items-center gap-1 text-sm text-muted-foreground">
+            <Users className="w-4 h-4" />
+            <span>{player.hand.length} cards</span>
+          </div>
         </div>
         
-        <div className="flex items-center gap-4 text-sm">
-          <div className={cn(
-            'px-2 py-1 rounded-lg font-semibold',
-            hasWon ? 'bg-accent text-accent-foreground' :
-            isCloseToWin ? 'bg-destructive text-destructive-foreground' :
-            'bg-muted text-muted-foreground'
-          )}>
-            Value: {totalValue}/50
+        <div className="text-right space-y-1">
+          <div className="flex items-center gap-2">
+            <Trophy className="w-4 h-4 text-accent" />
+            <div className="text-sm text-muted-foreground">Score</div>
+            <div className="text-xl font-bold text-accent">{playerScore}</div>
           </div>
-          
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <span>Hand: {player.hand.length}</span>
-            <Skull className="w-4 h-4" />
-            <span>Graveyard: {player.graveyard.length}</span>
+          <div className="text-xs text-muted-foreground">
+            Units: +{totalValue} | Graveyard: -{graveyardValue}
           </div>
         </div>
       </div>
+      
+      <div className="mb-4">
+        <GraveyardViewer
+          graveyard={player.graveyard}
+          playerName={player.name}
+          graveyardValue={graveyardValue}
+        />
+      </div>
 
       {/* Units */}
-      <div className="mb-4">
-        <h4 className="text-sm font-semibold text-muted-foreground mb-2">
+      <div className="space-y-2">
+        <h4 className="text-sm font-semibold text-muted-foreground">
           Units ({player.units.length})
         </h4>
-        <div className="flex flex-wrap gap-2">
+        
+        <div className="grid gap-2">
           {player.units.map((unit) => (
             <div
               key={unit.id}
               className={cn(
-                'flex gap-1 p-2 rounded-lg border bg-muted/50 cursor-pointer',
-                'hover:bg-muted transition-colors',
-                unit.totalValue >= 15 && 'border-accent/50 bg-accent/10'
+                'p-3 rounded-lg border bg-muted/20 cursor-pointer transition-all duration-200',
+                'hover:bg-muted/40 hover:border-accent/50',
+                canAttack && selectedCardId && 'hover:scale-105 hover:shadow-battle'
               )}
-              onClick={() => onUnitClick?.(unit.id)}
+              onClick={() => {
+                if (canAttack && selectedCardId) {
+                  onAttackUnit?.(selectedCardId, unit.id);
+                } else if (onReinforceUnit && selectedCardId) {
+                  onReinforceUnit(selectedCardId, unit.id);
+                } else {
+                  onUnitSelect?.(unit.id);
+                }
+              }}
             >
-              {unit.cards.map((card) => (
-                <Card
-                  key={card.id}
-                  card={card}
-                  size="small"
-                  selected={selectedCards.includes(card.id)}
-                  onClick={() => onCardClick?.(card.id)}
-                />
-              ))}
-              <div className="flex items-center justify-center min-w-8 text-xs font-bold text-accent">
-                {unit.totalValue}
+              <div className="flex justify-between items-center mb-2">
+                <div className="text-sm font-semibold text-muted-foreground">
+                  Unit {unit.id.slice(-4)}
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="text-lg font-bold text-accent">
+                    {unit.totalValue}
+                  </div>
+                  {canAttack && selectedCardId && (
+                    <div className="w-2 h-2 bg-destructive rounded-full animate-pulse" />
+                  )}
+                  {onReinforceUnit && selectedCardId && (
+                    <Plus className="w-4 h-4 text-accent" />
+                  )}
+                </div>
+              </div>
+              
+              <div className="flex gap-1 flex-wrap">
+                {unit.cards.map((card) => (
+                  <Card
+                    key={card.id}
+                    card={card}
+                    size="small"
+                    onClick={() => onCardSelect?.(card.id)}
+                    className="transition-transform hover:scale-110"
+                  />
+                ))}
               </div>
             </div>
           ))}
+          
+          {player.units.length === 0 && (
+            <div className="p-8 text-center text-muted-foreground bg-muted/10 rounded-lg border-dashed border-2">
+              No units deployed
+            </div>
+          )}
         </div>
       </div>
 
       {/* Hand (only show for current player) */}
       {isCurrentPlayer && (
-        <div>
+        <div className="mt-6">
           <h4 className="text-sm font-semibold text-muted-foreground mb-2">
             Hand ({player.hand.length})
           </h4>
@@ -109,8 +151,9 @@ export const PlayerArea: React.FC<PlayerAreaProps> = ({
                 key={card.id}
                 card={card}
                 size="medium"
-                selected={selectedCards.includes(card.id)}
-                onClick={() => onCardClick?.(card.id)}
+                selected={selectedCardId === card.id}
+                onClick={() => onCardSelect?.(card.id)}
+                className="hover:scale-105 transition-transform"
               />
             ))}
           </div>

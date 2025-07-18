@@ -106,7 +106,7 @@ export const BattleModal: React.FC<BattleModalProps> = ({
                 </div>
                 
                 <div className="space-y-4">
-                  <div className="space-y-2">
+                    <div className="space-y-2">
                     <h4 className="text-sm font-semibold text-muted-foreground">
                       Hand Cards (Face Down):
                     </h4>
@@ -116,6 +116,7 @@ export const BattleModal: React.FC<BattleModalProps> = ({
                           key={id}
                           card={card}
                           size="small"
+                          faceDown={true}
                           onClick={() => onDefend(id, fromHand)}
                           className="hover:scale-110 cursor-pointer"
                         />
@@ -128,7 +129,7 @@ export const BattleModal: React.FC<BattleModalProps> = ({
                   
                   <div className="space-y-2">
                     <h4 className="text-sm font-semibold text-muted-foreground">
-                      Unit Cards (Face Up):
+                      Target Unit Cards Only:
                     </h4>
                     <div className="flex flex-wrap gap-2 min-h-[3rem] p-2 bg-muted/10 rounded border-dashed border">
                       {defenderCards.filter(({ fromHand }) => !fromHand).map(({ id, card, fromHand }) => (

@@ -229,3 +229,13 @@ export const resolveBattle = (
     return { winner: 'attacker' };
   }
 };
+
+export const calculateGraveyardValue = (graveyard: GameCard[]): number => {
+  return graveyard.reduce((sum, card) => sum + card.value, 0);
+};
+
+export const calculatePlayerScore = (player: Player): number => {
+  const unitScore = player.units.reduce((sum, unit) => sum + unit.totalValue, 0);
+  const graveyardPenalty = calculateGraveyardValue(player.graveyard);
+  return unitScore - graveyardPenalty;
+};

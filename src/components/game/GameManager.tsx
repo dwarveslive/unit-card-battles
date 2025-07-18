@@ -216,8 +216,14 @@ export const GameManager: React.FC = () => {
     if (result.winner === 'attacker') {
       // Attacker wins - let them choose which card to kidnap from target unit
       const targetUnit = defenderPlayer.units.find(u => u.id === battleState.targetUnit.id);
-      if (targetUnit && targetUnit.cards.length > 0) {
-        setKidnapChoice({ targetUnit, availableCards: [...targetUnit.cards] });
+      const availableCards = [...(targetUnit?.cards || [])];
+      // Also include the defending card that just lost
+      if (battleState.defender.card) {
+        availableCards.push(battleState.defender.card);
+      }
+      
+      if (availableCards.length > 0) {
+        setKidnapChoice({ targetUnit: targetUnit || battleState.targetUnit, availableCards });
         // Don't resolve battle yet - wait for kidnap choice
         return;
       }
@@ -231,11 +237,9 @@ export const GameManager: React.FC = () => {
     
     if (battleState.defender.fromHand) {
       defenderPlayer.hand = defenderPlayer.hand.filter(c => c.id !== battleState.defender.card.id);
-      defenderPlayer.graveyard.push(battleState.defender.card);
-    } else {
-      // Defending card from unit goes to graveyard
-      defenderPlayer.graveyard.push(battleState.defender.card);
     }
+    // Defending card always goes to defending player's graveyard
+    defenderPlayer.graveyard.push(battleState.defender.card);
 
     // After attack, go to reinforce phase instead of discard
     newGameState.phase = 'reinforce';
@@ -256,20 +260,26 @@ export const GameManager: React.FC = () => {
     const newGameState = { ...gameState };
     const attackerPlayer = newGameState.players.find(p => p.id === battleState.attacker.playerId)!;
     const defenderPlayer = newGameState.players.find(p => p.id === battleState.defender.playerId)!;
-    const targetUnit = defenderPlayer.units.find(u => u.id === battleState.targetUnit.id)!;
+    const targetUnit = defenderPlayer.units.find(u => u.id === battleState.targetUnit.id);
 
-    // Find and remove the chosen card from the target unit
-    const cardToKidnap = targetUnit.cards.find(c => c.id === cardId)!;
-    targetUnit.cards = targetUnit.cards.filter(c => c.id !== cardId);
-    targetUnit.totalValue -= cardToKidnap.value;
+    const cardToKidnap = kidnapChoice.availableCards.find(c => c.id === cardId)!;
+    
+    // If the kidnapped card is from the unit (not the defending card), remove it from unit
+    if (targetUnit && targetUnit.cards.some(c => c.id === cardId)) {
+      targetUnit.cards = targetUnit.cards.filter(c => c.id !== cardId);
+      targetUnit.totalValue -= cardToKidnap.value;
+      
+      // If unit is empty, remove it
+      if (targetUnit.cards.length === 0) {
+        defenderPlayer.units = defenderPlayer.units.filter(u => u.id !== targetUnit.id);
+      }
+    } else {
+      // If it's the defending card, remove it from graveyard (it was added during battle resolution)
+      defenderPlayer.graveyard = defenderPlayer.graveyard.filter(c => c.id !== cardId);
+    }
     
     // Add to attacker's hand
     attackerPlayer.hand.push(cardToKidnap);
-    
-    // If unit is empty, remove it
-    if (targetUnit.cards.length === 0) {
-      defenderPlayer.units = defenderPlayer.units.filter(u => u.id !== targetUnit.id);
-    }
 
     // Move battle cards to appropriate places
     if (battleState.attacker.fromHand) {
@@ -279,7 +289,11 @@ export const GameManager: React.FC = () => {
     
     if (battleState.defender.fromHand) {
       defenderPlayer.hand = defenderPlayer.hand.filter(c => c.id !== battleState.defender.card.id);
-      defenderPlayer.graveyard.push(battleState.defender.card);
+    }
+    
+    // If the kidnapped card is NOT the defending card, defending card goes to graveyard
+    if (cardToKidnap.id !== battleState.defender.card?.id) {
+      defenderPlayer.graveyard.push(battleState.defender.card!);
     }
 
     // After attack, go to reinforce phase instead of discard
@@ -311,9 +325,9 @@ export const GameManager: React.FC = () => {
     
     if (battleState.defender.fromHand) {
       defenderPlayer.hand = defenderPlayer.hand.filter(c => c.id !== battleState.defender.card.id);
-      // Since attacker won but skipped kidnap, defending card goes to defender's graveyard
-      defenderPlayer.graveyard.push(battleState.defender.card);
     }
+    // Since attacker won but skipped kidnap, defending card goes to defender's graveyard
+    defenderPlayer.graveyard.push(battleState.defender.card!);
 
     // After attack, go to reinforce phase instead of discard
     newGameState.phase = 'reinforce';
@@ -558,10 +572,10 @@ export const GameManager: React.FC = () => {
 
   const defenderCards = battleState ? (() => {
     const defender = gameState.players.find(p => p.id === battleState.defender.playerId)!;
-    const availableCards = getAvailableCards(defender);
+    const targetUnit = battleState.targetUnit;
     return [
-      ...availableCards.hand.map(card => ({ id: card.id, card, fromHand: true })),
-      ...availableCards.units.map(card => ({ id: card.id, card, fromHand: false }))
+      ...defender.hand.map(card => ({ id: card.id, card, fromHand: true })),
+      ...targetUnit.cards.map(card => ({ id: card.id, card, fromHand: false }))
     ];
   })() : [];
 

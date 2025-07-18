@@ -1,6 +1,7 @@
 import { GameCard, CardColor } from '@/types/game';
 import { cn } from '@/lib/utils';
 import { Zap, Shield, Sword, Star, Crown } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface CardProps {
   card: GameCard;
@@ -61,7 +62,7 @@ export const Card: React.FC<CardProps> = ({
 }) => {
   const isWhite = card.color === 'white';
   
-  return (
+  const cardContent = (
     <div
       className={cn(
         'relative rounded-lg border-2 cursor-pointer transition-all duration-300',
@@ -121,5 +122,48 @@ export const Card: React.FC<CardProps> = ({
         </>
       )}
     </div>
+  );
+
+  if (faceDown) {
+    return cardContent;
+  }
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          {cardContent}
+        </TooltipTrigger>
+        <TooltipContent side="top" className="max-w-xs p-4">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <div className={cn(
+                'w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold',
+                getCardColorClasses(card.color)
+              )}>
+                {card.value}
+              </div>
+              <div className="font-semibold">{card.name}</div>
+            </div>
+            <div className="text-sm">
+              <div className="flex justify-between">
+                <span>Power: {card.power}</span>
+                <span>Value: {card.value}</span>
+              </div>
+            </div>
+            <div className="text-sm border-t pt-2">
+              <div className="flex items-center gap-1 mb-1">
+                {getAbilityIcon(card.ability)}
+                <span className="font-medium">Ability:</span>
+              </div>
+              <div className="text-xs text-muted-foreground">{card.ability}</div>
+            </div>
+            <div className="text-xs text-muted-foreground border-t pt-2">
+              Click to view large preview
+            </div>
+          </div>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 };
