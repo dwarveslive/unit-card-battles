@@ -87,11 +87,11 @@ export const BattleModal: React.FC<BattleModalProps> = ({
                 <Card
                   card={battleState.defender.card}
                   size="large"
-                  faceDown={battleState.defender.fromHand}
+                  faceDown={false}
                   className="shadow-battle animate-card-battle"
                 />
                 <div className="text-sm text-muted-foreground">
-                  {battleState.defender.fromHand ? 'From Hand (Face Down)' : 'From Unit (Face Up)'}
+                  {battleState.defender.fromHand ? 'From Hand (Revealed)' : 'From Unit (Face Up)'}
                 </div>
                 <div className="text-lg font-bold text-secondary">
                   Power: {battleState.defender.card.power}

@@ -81,6 +81,17 @@ export const GameManager: React.FC = () => {
     const newGameState = { ...gameState };
     const currentPlayer = newGameState.players[newGameState.currentPlayerIndex];
     
+    // Check if player would have only 1 card left and hasn't attacked (will need to discard)
+    const remainingCards = currentPlayer.hand.length - cardIds.length;
+    if (remainingCards === 1 && !attackUsed) {
+      toast({
+        title: "Cannot Play Unit",
+        description: "You cannot play your last card unless you have attacked this turn, as you must discard at least one card.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     // Get the selected cards
     const selectedCards = cardIds.map(id => 
       currentPlayer.hand.find(card => card.id === id)!
@@ -118,7 +129,7 @@ export const GameManager: React.FC = () => {
       title: "Unit Played!",
       description: `Created unit with value ${unit.totalValue}`,
     });
-  }, [gameState, toast]);
+  }, [gameState, toast, attackUsed]);
 
   const handleAttackUnit = useCallback((attackerCardId: string, targetUnitId: string) => {
     if (!gameState || attackUsed) return;
@@ -190,10 +201,22 @@ export const GameManager: React.FC = () => {
     const attackerPlayer = newGameState.players.find(p => p.id === battleState.attacker.playerId)!;
     const defenderPlayer = newGameState.players.find(p => p.id === battleState.defender.playerId)!;
 
+    // Remove defending card from unit if it came from a unit
+    if (!battleState.defender.fromHand) {
+      const targetUnit = defenderPlayer.units.find(u => u.id === battleState.targetUnit.id)!;
+      targetUnit.cards = targetUnit.cards.filter(c => c.id !== battleState.defender.card!.id);
+      targetUnit.totalValue -= battleState.defender.card!.value;
+      
+      // If unit is empty after removing defending card, remove the unit
+      if (targetUnit.cards.length === 0) {
+        defenderPlayer.units = defenderPlayer.units.filter(u => u.id !== targetUnit.id);
+      }
+    }
+
     if (result.winner === 'attacker') {
       // Attacker wins - let them choose which card to kidnap from target unit
-      const targetUnit = defenderPlayer.units.find(u => u.id === battleState.targetUnit.id)!;
-      if (targetUnit.cards.length > 0) {
+      const targetUnit = defenderPlayer.units.find(u => u.id === battleState.targetUnit.id);
+      if (targetUnit && targetUnit.cards.length > 0) {
         setKidnapChoice({ targetUnit, availableCards: [...targetUnit.cards] });
         // Don't resolve battle yet - wait for kidnap choice
         return;
@@ -208,6 +231,9 @@ export const GameManager: React.FC = () => {
     
     if (battleState.defender.fromHand) {
       defenderPlayer.hand = defenderPlayer.hand.filter(c => c.id !== battleState.defender.card.id);
+      defenderPlayer.graveyard.push(battleState.defender.card);
+    } else {
+      // Defending card from unit goes to graveyard
       defenderPlayer.graveyard.push(battleState.defender.card);
     }
 
@@ -381,14 +407,42 @@ export const GameManager: React.FC = () => {
       newGameState.phase = 'attack';
       setAttackUsed(false); // Reset attack for new attack phase
     } else if (newGameState.phase === 'attack') {
-      newGameState.phase = 'reinforce';
+      // If player attacked, skip discard phase and go directly to next turn
+      if (attackUsed) {
+        newGameState.currentPlayerIndex = (newGameState.currentPlayerIndex + 1) % newGameState.players.length;
+        newGameState.phase = 'draw';
+        setAttackUsed(false);
+        
+        if (newGameState.finalTurnTrigger) {
+          newGameState.finalTurnRemaining--;
+          if (newGameState.finalTurnRemaining <= 0) {
+            newGameState.gameEnded = true;
+          }
+        }
+      } else {
+        newGameState.phase = 'reinforce';
+      }
     } else if (newGameState.phase === 'reinforce') {
-      newGameState.phase = 'discard';
+      // If player attacked, skip discard phase and go directly to next turn
+      if (attackUsed) {
+        newGameState.currentPlayerIndex = (newGameState.currentPlayerIndex + 1) % newGameState.players.length;
+        newGameState.phase = 'draw';
+        setAttackUsed(false);
+        
+        if (newGameState.finalTurnTrigger) {
+          newGameState.finalTurnRemaining--;
+          if (newGameState.finalTurnRemaining <= 0) {
+            newGameState.gameEnded = true;
+          }
+        }
+      } else {
+        newGameState.phase = 'discard';
+      }
     }
     
     setGameState(newGameState);
     setSelectedCards([]);
-  }, [gameState]);
+  }, [gameState, attackUsed]);
 
   const handleCardSelect = useCallback((cardId: string) => {
     setSelectedCards(prev => 
