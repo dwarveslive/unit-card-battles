@@ -158,9 +158,6 @@ export const Card: React.FC<CardProps> = ({
               </div>
               <div className="text-xs text-muted-foreground">{card.ability}</div>
             </div>
-            <div className="text-xs text-muted-foreground border-t pt-2">
-              Click to view large preview
-            </div>
           </div>
         </TooltipContent>
       </Tooltip>

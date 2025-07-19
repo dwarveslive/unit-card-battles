@@ -72,6 +72,7 @@ export const PlayerArea: React.FC<PlayerAreaProps> = ({
           graveyard={player.graveyard}
           playerName={player.name}
           graveyardValue={graveyardValue}
+          showVerticalStack={true}
         />
       </div>
 

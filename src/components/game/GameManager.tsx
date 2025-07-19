@@ -28,6 +28,8 @@ export const GameManager: React.FC = () => {
   const [gameSetup, setGameSetup] = useState(true);
   const [attackUsed, setAttackUsed] = useState(false);
   const [kidnapChoice, setKidnapChoice] = useState<{ targetUnit: Unit; availableCards: GameCard[] } | null>(null);
+  const [cardsDrawn, setCardsDrawn] = useState(0);
+  const [actionChosen, setActionChosen] = useState<'attack' | 'discard' | null>(null);
   const { toast } = useToast();
 
   const startGame = useCallback(() => {
@@ -48,31 +50,54 @@ export const GameManager: React.FC = () => {
     }
   }, [playerNames, toast]);
 
-  const handleDrawCards = useCallback((choice: DrawChoice) => {
-    if (!gameState) return;
+  const handleDrawCard = useCallback((fromDiscard: boolean = false) => {
+    if (!gameState || cardsDrawn >= 2) return;
 
     const newGameState = { ...gameState };
     const currentPlayer = newGameState.players[newGameState.currentPlayerIndex];
     
-    // Draw from deck
-    for (let i = 0; i < choice.deckCount; i++) {
-      if (newGameState.deck.length > 0) {
-        const card = newGameState.deck.pop()!;
-        currentPlayer.hand.push(card);
-      }
-    }
-    
-    // Draw from discard pile
-    for (let i = 0; i < choice.discardCount; i++) {
+    if (fromDiscard) {
       if (newGameState.discardPile.length > 0) {
         const card = newGameState.discardPile.pop()!;
         currentPlayer.hand.push(card);
+        setCardsDrawn(prev => prev + 1);
+      }
+    } else {
+      if (newGameState.deck.length > 0) {
+        const card = newGameState.deck.pop()!;
+        currentPlayer.hand.push(card);
+        setCardsDrawn(prev => prev + 1);
       }
     }
     
+    // If drawn 2 cards, move to choice phase
+    if (cardsDrawn + 1 >= 2) {
+      newGameState.phase = 'play';
+    }
+    
+    setGameState(newGameState);
+  }, [gameState, cardsDrawn]);
+
+  const handleDrawBoth = useCallback(() => {
+    if (!gameState || gameState.discardPile.length === 0) return;
+
+    const newGameState = { ...gameState };
+    const currentPlayer = newGameState.players[newGameState.currentPlayerIndex];
+    
+    // Draw 1 from deck and 1 from discard
+    if (newGameState.deck.length > 0) {
+      const deckCard = newGameState.deck.pop()!;
+      currentPlayer.hand.push(deckCard);
+    }
+    
+    if (newGameState.discardPile.length > 0) {
+      const discardCard = newGameState.discardPile.pop()!;
+      currentPlayer.hand.push(discardCard);
+    }
+    
+    setCardsDrawn(2);
     newGameState.phase = 'play';
     setGameState(newGameState);
-    setSelectedCards([]);
   }, [gameState]);
 
   const handlePlayUnit = useCallback((cardIds: string[]) => {
@@ -81,12 +106,12 @@ export const GameManager: React.FC = () => {
     const newGameState = { ...gameState };
     const currentPlayer = newGameState.players[newGameState.currentPlayerIndex];
     
-    // Check if player would have only 1 card left and hasn't attacked (will need to discard)
+    // Check if player would have only 1 card left and hasn't chosen attack action (will need to discard)
     const remainingCards = currentPlayer.hand.length - cardIds.length;
-    if (remainingCards === 1 && !attackUsed) {
+    if (remainingCards === 1 && actionChosen !== 'attack') {
       toast({
         title: "Cannot Play Unit",
-        description: "You cannot play your last card unless you have attacked this turn, as you must discard at least one card.",
+        description: "You cannot play your last card unless you choose to attack, as you must discard at least one card.",
         variant: "destructive",
       });
       return;
@@ -121,7 +146,7 @@ export const GameManager: React.FC = () => {
       newGameState.finalTurnRemaining = newGameState.players.length - 1;
     }
     
-    newGameState.phase = 'attack';
+    // Stay in play phase to allow more units or choice
     setGameState(newGameState);
     setSelectedCards([]);
     
@@ -132,7 +157,7 @@ export const GameManager: React.FC = () => {
   }, [gameState, toast, attackUsed]);
 
   const handleAttackUnit = useCallback((attackerCardId: string, targetUnitId: string) => {
-    if (!gameState || attackUsed) return;
+    if (!gameState || attackUsed || actionChosen !== 'attack') return;
 
     const currentPlayer = gameState.players[gameState.currentPlayerIndex];
     const targetUnit = gameState.players
@@ -241,7 +266,7 @@ export const GameManager: React.FC = () => {
     // Defending card always goes to defending player's graveyard
     defenderPlayer.graveyard.push(battleState.defender.card);
 
-    // After attack, go to reinforce phase instead of discard
+    // After attack, go to reinforce phase
     newGameState.phase = 'reinforce';
 
     setGameState(newGameState);
@@ -296,7 +321,7 @@ export const GameManager: React.FC = () => {
       defenderPlayer.graveyard.push(battleState.defender.card!);
     }
 
-    // After attack, go to reinforce phase instead of discard
+    // After attack, go to reinforce phase
     newGameState.phase = 'reinforce';
 
     setGameState(newGameState);
@@ -329,7 +354,7 @@ export const GameManager: React.FC = () => {
     // Since attacker won but skipped kidnap, defending card goes to defender's graveyard
     defenderPlayer.graveyard.push(battleState.defender.card!);
 
-    // After attack, go to reinforce phase instead of discard
+    // After attack, go to reinforce phase
     newGameState.phase = 'reinforce';
 
     setGameState(newGameState);
@@ -396,10 +421,12 @@ export const GameManager: React.FC = () => {
     currentPlayer.hand = currentPlayer.hand.filter(c => c.id !== cardId);
     newGameState.discardPile.push(card);
     
-    // End turn
+    // This is called when discarding - automatically end turn
     newGameState.currentPlayerIndex = (newGameState.currentPlayerIndex + 1) % newGameState.players.length;
     newGameState.phase = 'draw';
-    setAttackUsed(false); // Reset attack for new turn
+    setAttackUsed(false);
+    setCardsDrawn(0);
+    setActionChosen(null);
     
     if (newGameState.finalTurnTrigger) {
       newGameState.finalTurnRemaining--;
@@ -412,59 +439,50 @@ export const GameManager: React.FC = () => {
     setSelectedCards([]);
   }, [gameState]);
 
+  const handleChooseAction = useCallback((action: 'attack' | 'discard') => {
+    setActionChosen(action);
+    if (action === 'attack') {
+      setAttackUsed(false); // Reset for potential attack
+    }
+  }, []);
+
   const handleEndTurn = useCallback(() => {
     if (!gameState) return;
 
     const newGameState = { ...gameState };
     
-    if (newGameState.phase === 'play') {
-      newGameState.phase = 'attack';
-      setAttackUsed(false); // Reset attack for new attack phase
-    } else if (newGameState.phase === 'attack') {
-      // If player attacked, skip discard phase and go directly to next turn
-      if (attackUsed) {
-        newGameState.currentPlayerIndex = (newGameState.currentPlayerIndex + 1) % newGameState.players.length;
-        newGameState.phase = 'draw';
-        setAttackUsed(false);
-        
-        if (newGameState.finalTurnTrigger) {
-          newGameState.finalTurnRemaining--;
-          if (newGameState.finalTurnRemaining <= 0) {
-            newGameState.gameEnded = true;
-          }
-        }
-      } else {
-        newGameState.phase = 'reinforce';
-      }
-    } else if (newGameState.phase === 'reinforce') {
-      // If player attacked, skip discard phase and go directly to next turn
-      if (attackUsed) {
-        newGameState.currentPlayerIndex = (newGameState.currentPlayerIndex + 1) % newGameState.players.length;
-        newGameState.phase = 'draw';
-        setAttackUsed(false);
-        
-        if (newGameState.finalTurnTrigger) {
-          newGameState.finalTurnRemaining--;
-          if (newGameState.finalTurnRemaining <= 0) {
-            newGameState.gameEnded = true;
-          }
-        }
-      } else {
-        newGameState.phase = 'discard';
+    // End turn and move to next player
+    newGameState.currentPlayerIndex = (newGameState.currentPlayerIndex + 1) % newGameState.players.length;
+    newGameState.phase = 'draw';
+    
+    // Reset turn state
+    setAttackUsed(false);
+    setCardsDrawn(0);
+    setActionChosen(null);
+    
+    if (newGameState.finalTurnTrigger) {
+      newGameState.finalTurnRemaining--;
+      if (newGameState.finalTurnRemaining <= 0) {
+        newGameState.gameEnded = true;
       }
     }
     
     setGameState(newGameState);
     setSelectedCards([]);
-  }, [gameState, attackUsed]);
+  }, [gameState]);
 
   const handleCardSelect = useCallback((cardId: string) => {
-    setSelectedCards(prev => 
-      prev.includes(cardId) 
-        ? prev.filter(id => id !== cardId)
-        : [...prev, cardId]
-    );
-  }, []);
+    if (gameState?.phase === 'reinforce') {
+      // In reinforce phase, only allow single selection
+      setSelectedCards([cardId]);
+    } else {
+      setSelectedCards(prev => 
+        prev.includes(cardId) 
+          ? prev.filter(id => id !== cardId)
+          : [...prev, cardId]
+      );
+    }
+  }, [gameState?.phase]);
 
   const handleUnitSelect = useCallback((unitId: string) => {
     setSelectedUnit(unitId);
@@ -583,7 +601,11 @@ export const GameManager: React.FC = () => {
     <div className="min-h-screen">
       <GameBoard
         gameState={gameState}
-        onDrawCards={handleDrawCards}
+            onDrawCard={handleDrawCard}
+            onDrawBoth={handleDrawBoth}
+            cardsDrawn={cardsDrawn}
+            actionChosen={actionChosen}
+            onChooseAction={handleChooseAction}
         onPlayUnit={handlePlayUnit}
         onAttackUnit={handleAttackUnit}
         onDiscardCard={handleDiscardCard}

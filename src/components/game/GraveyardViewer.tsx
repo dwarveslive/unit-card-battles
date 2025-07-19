@@ -11,6 +11,7 @@ interface GraveyardViewerProps {
   graveyard: GameCard[];
   playerName: string;
   graveyardValue: number;
+  showVerticalStack?: boolean;
   className?: string;
 }
 
@@ -18,6 +19,7 @@ export const GraveyardViewer: React.FC<GraveyardViewerProps> = ({
   graveyard,
   playerName,
   graveyardValue,
+  showVerticalStack = false,
   className
 }) => {
   return (
@@ -49,22 +51,49 @@ export const GraveyardViewer: React.FC<GraveyardViewerProps> = ({
           </div>
           
           <ScrollArea className="h-96">
-            <div className="grid grid-cols-4 gap-2 p-1">
-              {graveyard.map((card) => (
-                <div key={card.id} className="relative">
-                  <Card
-                    card={card}
-                    size="small"
-                    className="opacity-75"
-                  />
-                </div>
-              ))}
-              {graveyard.length === 0 && (
-                <div className="col-span-4 flex items-center justify-center h-32 text-muted-foreground">
-                  No cards in graveyard
-                </div>
-              )}
-            </div>
+            {showVerticalStack ? (
+              <div className="relative p-4 h-40">
+                {graveyard.slice(-10).map((card, index) => (
+                  <div
+                    key={`${card.id}-${index}`}
+                    className="absolute"
+                    style={{
+                      top: `${index * 6}px`,
+                      left: `${index * 3}px`,
+                      zIndex: index + 1
+                    }}
+                  >
+                    <Card
+                      card={card}
+                      size="small"
+                      className="opacity-75"
+                    />
+                  </div>
+                ))}
+                {graveyard.length === 0 && (
+                  <div className="flex items-center justify-center h-32 text-muted-foreground">
+                    No cards in graveyard
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="grid grid-cols-4 gap-2 p-1">
+                {graveyard.map((card) => (
+                  <div key={card.id} className="relative">
+                    <Card
+                      card={card}
+                      size="small"
+                      className="opacity-75"
+                    />
+                  </div>
+                ))}
+                {graveyard.length === 0 && (
+                  <div className="col-span-4 flex items-center justify-center h-32 text-muted-foreground">
+                    No cards in graveyard
+                  </div>
+                )}
+              </div>
+            )}
           </ScrollArea>
         </div>
       </DialogContent>
