@@ -30,6 +30,7 @@ export const GameManager: React.FC = () => {
   const [kidnapChoice, setKidnapChoice] = useState<{ targetUnit: Unit; availableCards: GameCard[] } | null>(null);
   const [cardsDrawn, setCardsDrawn] = useState(0);
   const [actionChosen, setActionChosen] = useState<'attack' | 'discard' | null>(null);
+  const [unitsPlayedThisTurn, setUnitsPlayedThisTurn] = useState(0);
   const { toast } = useToast();
 
   const startGame = useCallback(() => {
@@ -103,6 +104,16 @@ export const GameManager: React.FC = () => {
   const handlePlayUnit = useCallback((cardIds: string[]) => {
     if (!gameState || cardIds.length < 3) return;
 
+    // Check if player has already played a unit this turn
+    if (unitsPlayedThisTurn >= 1) {
+      toast({
+        title: "Cannot Play Unit",
+        description: "You can only play one unit per turn.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const newGameState = { ...gameState };
     const currentPlayer = newGameState.players[newGameState.currentPlayerIndex];
     
@@ -146,7 +157,8 @@ export const GameManager: React.FC = () => {
       newGameState.finalTurnRemaining = newGameState.players.length - 1;
     }
     
-    // Stay in play phase to allow more units or choice
+    // Increment units played this turn and stay in play phase
+    setUnitsPlayedThisTurn(prev => prev + 1);
     setGameState(newGameState);
     setSelectedCards([]);
     
@@ -154,7 +166,7 @@ export const GameManager: React.FC = () => {
       title: "Unit Played!",
       description: `Created unit with value ${unit.totalValue}`,
     });
-  }, [gameState, toast, attackUsed]);
+  }, [gameState, toast, actionChosen, unitsPlayedThisTurn]);
 
   const handleAttackUnit = useCallback((attackerCardId: string, targetUnitId: string) => {
     if (!gameState || attackUsed || actionChosen !== 'attack') return;
@@ -427,6 +439,7 @@ export const GameManager: React.FC = () => {
     setAttackUsed(false);
     setCardsDrawn(0);
     setActionChosen(null);
+    setUnitsPlayedThisTurn(0);
     
     if (newGameState.finalTurnTrigger) {
       newGameState.finalTurnRemaining--;
@@ -440,11 +453,20 @@ export const GameManager: React.FC = () => {
   }, [gameState]);
 
   const handleChooseAction = useCallback((action: 'attack' | 'discard') => {
+    if (!gameState) return;
+    
     setActionChosen(action);
+    const newGameState = { ...gameState };
+    
     if (action === 'attack') {
       setAttackUsed(false); // Reset for potential attack
+      newGameState.phase = 'attack';
+    } else if (action === 'discard') {
+      newGameState.phase = 'discard';
     }
-  }, []);
+    
+    setGameState(newGameState);
+  }, [gameState]);
 
   const handleEndTurn = useCallback(() => {
     if (!gameState) return;
@@ -459,6 +481,7 @@ export const GameManager: React.FC = () => {
     setAttackUsed(false);
     setCardsDrawn(0);
     setActionChosen(null);
+    setUnitsPlayedThisTurn(0);
     
     if (newGameState.finalTurnTrigger) {
       newGameState.finalTurnRemaining--;
