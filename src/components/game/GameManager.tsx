@@ -114,6 +114,11 @@ export const GameManager: React.FC = () => {
       return;
     }
 
+    // Also check if we're in the right phase to play units
+    if (gameState.phase !== 'play') {
+      return;
+    }
+
     const newGameState = { ...gameState };
     const currentPlayer = newGameState.players[newGameState.currentPlayerIndex];
     
@@ -264,19 +269,27 @@ export const GameManager: React.FC = () => {
         // Don't resolve battle yet - wait for kidnap choice
         return;
       }
-    }
-
-    // Move battle cards to appropriate places
-    if (battleState.attacker.fromHand) {
-      attackerPlayer.hand = attackerPlayer.hand.filter(c => c.id !== battleState.attacker.card.id);
+      
+      // Move attacker card to graveyard
+      if (battleState.attacker.fromHand) {
+        attackerPlayer.hand = attackerPlayer.hand.filter(c => c.id !== battleState.attacker.card.id);
+        attackerPlayer.graveyard.push(battleState.attacker.card);
+      }
+      
+      if (battleState.defender.fromHand) {
+        defenderPlayer.hand = defenderPlayer.hand.filter(c => c.id !== battleState.defender.card.id);
+      }
+      // Defending card goes to defending player's graveyard when attacker wins
+      defenderPlayer.graveyard.push(battleState.defender.card);
+    } else {
+      // Defender wins - defending card stays in unit/hand, attacking card goes to attacker's graveyard
+      if (battleState.attacker.fromHand) {
+        attackerPlayer.hand = attackerPlayer.hand.filter(c => c.id !== battleState.attacker.card.id);
+      }
       attackerPlayer.graveyard.push(battleState.attacker.card);
+      
+      // Defending card stays where it was (no movement needed)
     }
-    
-    if (battleState.defender.fromHand) {
-      defenderPlayer.hand = defenderPlayer.hand.filter(c => c.id !== battleState.defender.card.id);
-    }
-    // Defending card always goes to defending player's graveyard
-    defenderPlayer.graveyard.push(battleState.defender.card);
 
     // After attack, go to reinforce phase
     newGameState.phase = 'reinforce';
@@ -499,11 +512,12 @@ export const GameManager: React.FC = () => {
       // In reinforce phase, only allow single selection
       setSelectedCards([cardId]);
     } else {
-      setSelectedCards(prev => 
-        prev.includes(cardId) 
+      setSelectedCards(prev => {
+        const newSelection = prev.includes(cardId) 
           ? prev.filter(id => id !== cardId)
-          : [...prev, cardId]
-      );
+          : [...prev, cardId];
+        return newSelection;
+      });
     }
   }, [gameState?.phase]);
 
