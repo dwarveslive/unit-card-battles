@@ -9,7 +9,7 @@ interface PlayerAreaProps {
   player: Player;
   isCurrentPlayer: boolean;
   canAttack: boolean;
-  selectedCardId?: string;
+  selectedCards?: string[];
   onCardSelect?: (cardId: string) => void;
   onUnitSelect?: (unitId: string) => void;
   onAttackUnit?: (attackerCardId: string, targetUnitId: string) => void;
@@ -21,7 +21,7 @@ export const PlayerArea: React.FC<PlayerAreaProps> = ({
   player,
   isCurrentPlayer,
   canAttack,
-  selectedCardId,
+  selectedCards = [],
   onCardSelect,
   onUnitSelect,
   onAttackUnit,
@@ -89,13 +89,13 @@ export const PlayerArea: React.FC<PlayerAreaProps> = ({
               className={cn(
                 'p-3 rounded-lg border bg-muted/20 cursor-pointer transition-all duration-200',
                 'hover:bg-muted/40 hover:border-accent/50',
-                canAttack && selectedCardId && 'hover:scale-105 hover:shadow-battle'
+                canAttack && selectedCards.length > 0 && 'hover:scale-105 hover:shadow-battle'
               )}
               onClick={() => {
-                if (canAttack && selectedCardId) {
-                  onAttackUnit?.(selectedCardId, unit.id);
-                } else if (onReinforceUnit && selectedCardId) {
-                  onReinforceUnit(selectedCardId, unit.id);
+                if (canAttack && selectedCards.length > 0) {
+                  onAttackUnit?.(selectedCards[0], unit.id);
+                } else if (onReinforceUnit && selectedCards.length > 0) {
+                  onReinforceUnit(selectedCards[0], unit.id);
                 } else {
                   onUnitSelect?.(unit.id);
                 }
@@ -109,10 +109,10 @@ export const PlayerArea: React.FC<PlayerAreaProps> = ({
                   <div className="text-lg font-bold text-accent">
                     {unit.totalValue}
                   </div>
-                  {canAttack && selectedCardId && (
+                  {canAttack && selectedCards.length > 0 && (
                     <div className="w-2 h-2 bg-destructive rounded-full animate-pulse" />
                   )}
-                  {onReinforceUnit && selectedCardId && (
+                  {onReinforceUnit && selectedCards.length > 0 && (
                     <Plus className="w-4 h-4 text-accent" />
                   )}
                 </div>
@@ -152,7 +152,7 @@ export const PlayerArea: React.FC<PlayerAreaProps> = ({
                 key={card.id}
                 card={card}
                 size="medium"
-                selected={selectedCardId === card.id}
+                selected={selectedCards.includes(card.id)}
                 onClick={() => onCardSelect?.(card.id)}
                 className="hover:scale-105 transition-transform"
               />

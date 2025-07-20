@@ -79,7 +79,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
             </Button>
             <Button 
               onClick={() => onDrawCard(true)}
-              disabled={cardsDrawn >= 2 || gameState.discardPile.length === 0 || (gameState.discardPile.length === 1 && cardsDrawn >= 1)}
+              disabled={cardsDrawn >= 2 || gameState.discardPile.length === 0}
             >
               Draw from Discard ({cardsDrawn}/2)
             </Button>
@@ -267,7 +267,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
             player={player}
             isCurrentPlayer={index === gameState.currentPlayerIndex}
             canAttack={canAttack && index !== gameState.currentPlayerIndex}
-            selectedCardId={selectedCards[0]}
+            selectedCards={selectedCards}
             onCardSelect={onCardSelect}
             onUnitSelect={(unitId) => {
               // In attack phase, if attacker has selected a card and hasn't used attack, clicking enemy unit attacks it
