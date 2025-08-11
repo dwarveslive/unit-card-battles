@@ -33,7 +33,7 @@ export class WebSocketService {
           this.socket = null;
         }
 
-        console.log('🔄 Creating new WebSocket connection...');
+        console.log(`🔄 Creating new WebSocket connection to ${serverUrl}...`);
         this.socket = io(serverUrl, {
           forceNew: true,
           transports: ['websocket', 'polling'], // Start with polling only to avoid websocket issues
