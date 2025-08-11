@@ -15,7 +15,7 @@ const app = express();
 const server = createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: ["http://localhost:8080", "http://192.168.178.65:8080"],
+    origin: ["http://localhost:8080", "http://192.168.178.65:8080", "https://guild-battles-client.onrender.com"],
     methods: ["GET", "POST"],
     credentials: true
   },

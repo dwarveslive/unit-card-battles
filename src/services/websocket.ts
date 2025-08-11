@@ -1,6 +1,10 @@
 import { io, Socket } from 'socket.io-client';
 import { GameState } from '@/types/game';
 
+const serverIp = import.meta.env.VITE_SERVER_URL || 'http://localhost';
+const serverPort = import.meta.env.PORT || '3000';
+const serverUrl = serverIp + ':' + serverPort;
+
 export class WebSocketService {
   private socket: Socket | null = null;
   private currentRoomId: string | null = null;
@@ -30,10 +34,10 @@ export class WebSocketService {
         }
 
         console.log('🔄 Creating new WebSocket connection...');
-        this.socket = io('http://192.168.178.65:3000', {
+        this.socket = io(serverUrl, {
           forceNew: true,
-          transports: ['polling'], // Start with polling only to avoid websocket issues
-          timeout: 15000,
+          transports: ['websocket', 'polling'], // Start with polling only to avoid websocket issues
+          timeout: 30000,
           reconnection: false // Disable automatic reconnection
         });
 
