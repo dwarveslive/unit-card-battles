@@ -54,7 +54,7 @@ class WebSocketSingleton {
         console.log('🔄 Creating new WebSocket connection...');
         
         // Use environment variable or default to localhost
-        const serverUrl = import.meta.env.VITE_SERVER_URL || 'http://192.168.178.65:3000';
+        const serverUrl = import.meta.env.VITE_SERVER_URL || 'http://localhost:3000';
         console.log('🌐 Connecting to server:', serverUrl);
         
         this.socket = io(serverUrl, {
