@@ -23,7 +23,7 @@ const io = new Server(server, {
 });
 
 app.use(cors({
-  origin: ["http://localhost:8080", "http://192.168.178.65:8080"],
+  origin: ["http://localhost:8080", "http://192.168.178.65:8080", "https://guild-battles-client.onrender.com"],
   credentials: true
 }));
 
