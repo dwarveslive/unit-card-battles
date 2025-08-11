@@ -1,0 +1,24 @@
+{
+  "name": "unit-card-battles-server",
+  "version": "1.0.0",
+  "description": "WebSocket server for Unit Card Battles game",
+  "main": "src/server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "build": "echo 'No build step needed'"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "socket.io": "^4.7.4",
+    "cors": "^2.8.5",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  },
+  "keywords": ["websocket", "game", "cards", "multiplayer"],
+  "author": "",
+  "license": "MIT"
+}

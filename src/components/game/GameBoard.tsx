@@ -8,8 +8,8 @@ import { Shuffle, Users, Clock, Zap } from 'lucide-react';
 
 interface GameBoardProps {
   gameState: GameState;
+  currentPlayerId?: string;
   onDrawCard: (fromDiscard?: boolean) => void;
-  onDrawBoth: () => void;
   cardsDrawn: number;
   actionChosen: 'attack' | 'discard' | null;
   onChooseAction: (action: 'attack' | 'discard') => void;
@@ -21,14 +21,14 @@ interface GameBoardProps {
   onCardSelect: (cardId: string) => void;
   onUnitSelect: (unitId: string) => void;
   onReinforceUnit: (cardId: string, unitId: string) => void;
-  attackUsed?: boolean;
   className?: string;
 }
 
+
 export const GameBoard: React.FC<GameBoardProps> = ({
   gameState,
+  currentPlayerId,
   onDrawCard,
-  onDrawBoth,
   cardsDrawn,
   actionChosen,
   onChooseAction,
@@ -40,19 +40,25 @@ export const GameBoard: React.FC<GameBoardProps> = ({
   onCardSelect,
   onUnitSelect,
   onReinforceUnit,
-  attackUsed = false,
   className
 }) => {
   const currentPlayer = gameState.players[gameState.currentPlayerIndex];
-  const canPlayUnit = selectedCards.length >= 3;
-  const canAttack = selectedCards.length === 1 && gameState.phase === 'attack' && actionChosen === 'attack';
-  const canDiscard = selectedCards.length === 1 && gameState.phase === 'discard' && actionChosen === 'discard';
-  
+  const isCurrentPlayerTurn = currentPlayer.id === currentPlayerId;
+
+  const canAttack = selectedCards.length === 1
+    && gameState.phase === 'attack'
+    && gameState.actionChosen === 'attack'
+    && (gameState.attacksUsedThisTurn || 0) < 1;
+
+  const canDiscard = selectedCards.length === 1
+    && gameState.phase === 'discard'
+    && gameState.actionChosen === 'discard';
+
   // Check if selected cards can form a unit
-  const selectedCardObjects = selectedCards.map(id => 
+  const selectedCardObjects = selectedCards.map(id =>
     currentPlayer.hand.find(card => card.id === id)
   ).filter(Boolean);
-  
+
   const canFormValidUnit = selectedCardObjects.length >= 3 && canFormUnit(selectedCardObjects as any[]);
 
   const getPhaseTitle = () => {
@@ -60,7 +66,6 @@ export const GameBoard: React.FC<GameBoardProps> = ({
       case 'draw': return 'Draw Phase';
       case 'play': return 'Play Phase';
       case 'attack': return 'Attack Phase';
-      case 'reinforce': return 'Reinforce Phase';
       case 'discard': return 'Discard Phase';
       default: return 'Game Phase';
     }
@@ -71,100 +76,79 @@ export const GameBoard: React.FC<GameBoardProps> = ({
       case 'draw':
         return (
           <div className="flex gap-2">
-            <Button 
+            <Button
               onClick={() => onDrawCard(false)}
               disabled={cardsDrawn >= 2 || gameState.deck.length === 0}
             >
               Draw from Deck ({cardsDrawn}/2)
             </Button>
-            <Button 
+            <Button
               onClick={() => onDrawCard(true)}
               disabled={cardsDrawn >= 2 || gameState.discardPile.length === 0}
             >
               Draw from Discard ({cardsDrawn}/2)
             </Button>
-            <Button 
-              onClick={onDrawBoth}
-              disabled={cardsDrawn > 0 || gameState.discardPile.length === 0}
-            >
-              Draw 1 from Each
-            </Button>
           </div>
         );
-      
+
       case 'play':
         return (
           <div className="flex gap-2">
-            <Button 
+            <Button
               onClick={() => onPlayUnit(selectedCards)}
               disabled={!canFormValidUnit}
             >
               Play Unit ({selectedCards.length} cards)
             </Button>
-            <Button 
+            <Button
               onClick={() => onChooseAction('attack')}
-              disabled={actionChosen !== null}
-              variant={actionChosen === 'attack' ? 'default' : 'outline'}
+              variant={gameState.actionChosen === 'attack' ? 'default' : 'outline'}
             >
               Choose Attack
             </Button>
-            <Button 
+            <Button
               onClick={() => onChooseAction('discard')}
-              disabled={actionChosen !== null}
-              variant={actionChosen === 'discard' ? 'default' : 'outline'}
+              variant={gameState.actionChosen === 'discard' ? 'default' : 'outline'}
+              disabled={currentPlayer.hand.length === 0}
             >
               Choose Discard
             </Button>
           </div>
         );
-      
+
       case 'attack':
         return (
           <div className="flex gap-2">
             <div className="text-sm text-muted-foreground">
-              {actionChosen === 'attack' ? (
-                attackUsed 
-                  ? "Attack completed" 
-                  : selectedCards.length === 1 
-                    ? "Select an enemy unit to attack" 
+              {gameState.actionChosen === 'attack' ? (
+                (gameState.attacksUsedThisTurn || 0) > 0
+                  ? "Attack completed"
+                  : selectedCards.length === 1
+                    ? "Select an enemy unit to attack"
                     : "Select one card to attack with"
               ) : "Choose attack to proceed"}
             </div>
-            <Button variant="outline" onClick={onEndTurn}>
-              End Turn
-            </Button>
+            {/*<Button variant="outline" onClick={onEndTurn}>*/}
+            {/*  End Turn*/}
+            {/*</Button>*/}
           </div>
         );
-      
-      case 'reinforce':
-        return (
-          <div className="flex gap-2">
-            <div className="text-sm text-muted-foreground">
-              {selectedCards.length === 1 
-                ? "Select a unit to reinforce with this card" 
-                : "Select one card from your hand to add to a unit"}
-            </div>
-            <Button variant="outline" onClick={onEndTurn}>
-              End Turn
-            </Button>
-          </div>
-        );
-      
+
       case 'discard':
         return (
           <div className="flex gap-2">
             <div className="text-sm text-muted-foreground">
-              {actionChosen === 'discard' ? "Select a card to discard" : "Must choose discard"}
+              {gameState.actionChosen === 'discard' ? "Select a card to discard" : "Must choose discard"}
             </div>
-            <Button 
+            <Button
               onClick={() => onDiscardCard(selectedCards[0])}
-              disabled={!canDiscard || actionChosen !== 'discard'}
+              disabled={!canDiscard}
             >
               Discard Selected Card
             </Button>
           </div>
         );
-      
+
       default:
         return null;
     }
@@ -181,13 +165,13 @@ export const GameBoard: React.FC<GameBoardProps> = ({
               {getPhaseTitle()}
             </h2>
           </div>
-          
+
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Users className="w-4 h-4" />
             <span>Turn: {gameState.currentPlayerIndex + 1}</span>
           </div>
         </div>
-        
+
         <div className="flex items-center gap-4">
           {gameState.finalTurnTrigger && (
             <div className="flex items-center gap-2 px-3 py-1 bg-destructive/20 rounded-lg border border-destructive/50">
@@ -197,7 +181,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
               </span>
             </div>
           )}
-          
+
           <div className="text-sm text-muted-foreground">
             Current Player: <span className="font-bold text-primary">{currentPlayer.name}</span>
           </div>
@@ -254,7 +238,13 @@ export const GameBoard: React.FC<GameBoardProps> = ({
         <div className="p-4 bg-gradient-card rounded-lg border">
           <div className="flex items-center gap-4">
             <span className="text-sm font-semibold text-muted-foreground">Actions:</span>
-            {getPhaseActions()}
+            {isCurrentPlayerTurn ? (
+              getPhaseActions()
+            ) : (
+              <div className="text-sm text-muted-foreground italic">
+                Waiting for {currentPlayer.name} to take action...
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -267,24 +257,22 @@ export const GameBoard: React.FC<GameBoardProps> = ({
             player={player}
             isCurrentPlayer={index === gameState.currentPlayerIndex}
             canAttack={canAttack && index !== gameState.currentPlayerIndex}
+            currentPlayerId={currentPlayerId}
             selectedCards={selectedCards}
             onCardSelect={onCardSelect}
             onUnitSelect={(unitId) => {
-              // In attack phase, if attacker has selected a card and hasn't used attack, clicking enemy unit attacks it
-              if (gameState.phase === 'attack' && selectedCards.length === 1 && index !== gameState.currentPlayerIndex && !attackUsed && actionChosen === 'attack') {
+              if (gameState.phase === 'attack' && selectedCards.length === 1 && index !== gameState.currentPlayerIndex && (gameState.attacksUsedThisTurn || 0) < 1 && gameState.actionChosen === 'attack') {
                 onAttackUnit(selectedCards[0], unitId);
-              } else if (gameState.phase === 'reinforce' && selectedCards.length === 1) {
-                // In reinforce phase, clicking any unit with a selected card reinforces it
-                onReinforceUnit(selectedCards[0], unitId);
               } else {
                 onUnitSelect(unitId);
               }
             }}
             onAttackUnit={onAttackUnit}
             onReinforceUnit={onReinforceUnit}
+            gamePhase={gameState.phase}
           />
         ))}
       </div>
     </div>
   );
-};
+}

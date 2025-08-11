@@ -1,9 +1,9 @@
-import { BattleState } from '@/types/game';
-import { Card } from './Card';
-import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { cn } from '@/lib/utils';
-import { Swords, Shield, Zap } from 'lucide-react';
+import {BattleState} from '@/types/game';
+import {Card} from './Card';
+import {Button} from '@/components/ui/button';
+import {Dialog, DialogContent, DialogHeader, DialogTitle} from '@/components/ui/dialog';
+import {cn} from '@/lib/utils';
+import {Shield, Swords, Zap} from 'lucide-react';
 
 interface BattleModalProps {
   battleState: BattleState;
@@ -22,8 +22,7 @@ export const BattleModal: React.FC<BattleModalProps> = ({
   defenderCards,
   className
 }) => {
-  const hasDefender = battleState.defender.card !== undefined;
-  const canResolve = hasDefender;
+  const canResolve = battleState.defender.card !== undefined;
 
   const getBattleResult = () => {
     if (!battleState.defender.card) return null;
@@ -64,13 +63,14 @@ export const BattleModal: React.FC<BattleModalProps> = ({
               <Card
                 card={battleState.attacker.card}
                 size="large"
+                faceDown={battleState.attacker.fromHand}
                 className="shadow-battle animate-card-battle"
               />
               <div className="text-sm text-muted-foreground">
                 {battleState.attacker.fromHand ? 'From Hand (Face Down)' : 'From Unit (Face Up)'}
               </div>
               <div className="text-lg font-bold text-destructive">
-                Power: {battleState.attacker.card.power}
+                Power: {battleState.attacker.fromHand ? "Unknown" : battleState.attacker.card.power}
               </div>
             </div>
           </div>
@@ -87,7 +87,7 @@ export const BattleModal: React.FC<BattleModalProps> = ({
                 <Card
                   card={battleState.defender.card}
                   size="large"
-                  faceDown={false}
+                  faceDown={battleState.defender.fromHand}
                   className="shadow-battle animate-card-battle"
                 />
                 <div className="text-sm text-muted-foreground">
@@ -116,7 +116,6 @@ export const BattleModal: React.FC<BattleModalProps> = ({
                           key={id}
                           card={card}
                           size="small"
-                          faceDown={true}
                           onClick={() => onDefend(id, fromHand)}
                           className="hover:scale-110 cursor-pointer"
                         />

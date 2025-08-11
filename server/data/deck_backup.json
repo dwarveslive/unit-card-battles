@@ -1,0 +1,642 @@
+[
+  {
+    "id": "card-0",
+    "color": "green",
+    "power": 4,
+    "value": 2,
+    "ability": "Double power vs red",
+    "name": "Sun Priest"
+  },
+  {
+    "id": "card-1",
+    "color": "green",
+    "power": 1,
+    "value": 5,
+    "ability": "Double power vs blue",
+    "name": "Mountain Giant"
+  },
+  {
+    "id": "card-2",
+    "color": "green",
+    "power": 1,
+    "value": 1,
+    "ability": "Revive from graveyard",
+    "name": "Chaos Spawn"
+  },
+  {
+    "id": "card-3",
+    "color": "green",
+    "power": 2,
+    "value": 5,
+    "ability": "Double power vs red",
+    "name": "Fire Drake"
+  },
+  {
+    "id": "card-4",
+    "color": "green",
+    "power": 1,
+    "value": 2,
+    "ability": "Steal 1 card",
+    "name": "Soul Reaper"
+  },
+  {
+    "id": "card-5",
+    "color": "green",
+    "power": 3,
+    "value": 1,
+    "ability": "Double power vs red",
+    "name": "Sky Rider"
+  },
+  {
+    "id": "card-6",
+    "color": "green",
+    "power": 2,
+    "value": 5,
+    "ability": "+1 when defending",
+    "name": "Storm Knight"
+  },
+  {
+    "id": "card-7",
+    "color": "green",
+    "power": 2,
+    "value": 4,
+    "ability": "Steal 1 card",
+    "name": "Bone Necromancer"
+  },
+  {
+    "id": "card-8",
+    "color": "green",
+    "power": 4,
+    "value": 3,
+    "ability": "Immune to black",
+    "name": "Dark Assassin"
+  },
+  {
+    "id": "card-9",
+    "color": "green",
+    "power": 3,
+    "value": 4,
+    "ability": "Discard 1 card",
+    "name": "Star Caller"
+  },
+  {
+    "id": "card-10",
+    "color": "green",
+    "power": 5,
+    "value": 2,
+    "ability": "Double power vs blue",
+    "name": "Mountain Giant"
+  },
+  {
+    "id": "card-11",
+    "color": "green",
+    "power": 4,
+    "value": 4,
+    "ability": "Draw 1 card",
+    "name": "Luck Bringer"
+  },
+  {
+    "id": "card-12",
+    "color": "green",
+    "power": 1,
+    "value": 2,
+    "ability": "+1 when attacking",
+    "name": "Time Mage"
+  },
+  {
+    "id": "card-13",
+    "color": "green",
+    "power": 4,
+    "value": 1,
+    "ability": "+1 value when played",
+    "name": "Nature Wrath"
+  },
+  {
+    "id": "card-14",
+    "color": "green",
+    "power": 2,
+    "value": 2,
+    "ability": "Destroy 1 unit",
+    "name": "Nature Wrath"
+  },
+  {
+    "id": "card-15",
+    "color": "green",
+    "power": 1,
+    "value": 5,
+    "ability": "+1 power this turn",
+    "name": "Order Paladin"
+  },
+  {
+    "id": "card-16",
+    "color": "blue",
+    "power": 2,
+    "value": 1,
+    "ability": "Destroy 1 unit",
+    "name": "Star Caller"
+  },
+  {
+    "id": "card-17",
+    "color": "blue",
+    "power": 2,
+    "value": 4,
+    "ability": "Double power vs blue",
+    "name": "Shadow Warrior"
+  },
+  {
+    "id": "card-18",
+    "color": "blue",
+    "power": 3,
+    "value": 5,
+    "ability": "Double power vs red",
+    "name": "Void Walker"
+  },
+  {
+    "id": "card-19",
+    "color": "blue",
+    "power": 1,
+    "value": 5,
+    "ability": "Copy enemy ability",
+    "name": "Peace Keeper"
+  },
+  {
+    "id": "card-20",
+    "color": "blue",
+    "power": 4,
+    "value": 5,
+    "ability": "Gain extra turn",
+    "name": "Demon Hunter"
+  },
+  {
+    "id": "card-21",
+    "color": "blue",
+    "power": 2,
+    "value": 2,
+    "ability": "Gain extra turn",
+    "name": "Divine Angel"
+  },
+  {
+    "id": "card-22",
+    "color": "blue",
+    "power": 5,
+    "value": 1,
+    "ability": "Destroy 1 unit",
+    "name": "Despair Harbinger"
+  },
+  {
+    "id": "card-23",
+    "color": "blue",
+    "power": 2,
+    "value": 4,
+    "ability": "+1 value when played",
+    "name": "Life Cleric"
+  },
+  {
+    "id": "card-24",
+    "color": "blue",
+    "power": 2,
+    "value": 4,
+    "ability": "Copy enemy ability",
+    "name": "Soul Reaper"
+  },
+  {
+    "id": "card-25",
+    "color": "blue",
+    "power": 3,
+    "value": 5,
+    "ability": "Double power vs blue",
+    "name": "Star Caller"
+  },
+  {
+    "id": "card-26",
+    "color": "blue",
+    "power": 1,
+    "value": 2,
+    "ability": "Immune to black",
+    "name": "Star Caller"
+  },
+  {
+    "id": "card-27",
+    "color": "blue",
+    "power": 5,
+    "value": 3,
+    "ability": "Immune to black",
+    "name": "Fate Weaver"
+  },
+  {
+    "id": "card-28",
+    "color": "blue",
+    "power": 5,
+    "value": 1,
+    "ability": "Copy enemy ability",
+    "name": "Storm Knight"
+  },
+  {
+    "id": "card-29",
+    "color": "blue",
+    "power": 2,
+    "value": 1,
+    "ability": "Revive from graveyard",
+    "name": "Nightmare"
+  },
+  {
+    "id": "card-30",
+    "color": "blue",
+    "power": 4,
+    "value": 1,
+    "ability": "Heal 1 unit",
+    "name": "Life Cleric"
+  },
+  {
+    "id": "card-31",
+    "color": "blue",
+    "power": 2,
+    "value": 5,
+    "ability": "+1 power this turn",
+    "name": "Star Caller"
+  },
+  {
+    "id": "card-32",
+    "color": "red",
+    "power": 1,
+    "value": 3,
+    "ability": "Heal 1 unit",
+    "name": "Battle Mage"
+  },
+  {
+    "id": "card-33",
+    "color": "red",
+    "power": 5,
+    "value": 4,
+    "ability": "+1 power this turn",
+    "name": "War Chief"
+  },
+  {
+    "id": "card-34",
+    "color": "red",
+    "power": 5,
+    "value": 4,
+    "ability": "Destroy 1 unit",
+    "name": "Space Ranger"
+  },
+  {
+    "id": "card-35",
+    "color": "red",
+    "power": 5,
+    "value": 4,
+    "ability": "+1 power this turn",
+    "name": "Divine Angel"
+  },
+  {
+    "id": "card-36",
+    "color": "red",
+    "power": 2,
+    "value": 5,
+    "ability": "Heal 1 unit",
+    "name": "Frost Witch"
+  },
+  {
+    "id": "card-37",
+    "color": "red",
+    "power": 4,
+    "value": 1,
+    "ability": "Gain extra turn",
+    "name": "Life Cleric"
+  },
+  {
+    "id": "card-38",
+    "color": "red",
+    "power": 3,
+    "value": 5,
+    "ability": "+1 value when played",
+    "name": "Arcane Scholar"
+  },
+  {
+    "id": "card-39",
+    "color": "red",
+    "power": 2,
+    "value": 2,
+    "ability": "Double power vs blue",
+    "name": "Wind Runner"
+  },
+  {
+    "id": "card-40",
+    "color": "red",
+    "power": 3,
+    "value": 4,
+    "ability": "Steal 1 card",
+    "name": "Sun Priest"
+  },
+  {
+    "id": "card-41",
+    "color": "red",
+    "power": 3,
+    "value": 5,
+    "ability": "+1 when attacking",
+    "name": "Earth Shaman"
+  },
+  {
+    "id": "card-42",
+    "color": "red",
+    "power": 4,
+    "value": 2,
+    "ability": "Double power vs blue",
+    "name": "Mist Phantom"
+  },
+  {
+    "id": "card-43",
+    "color": "red",
+    "power": 3,
+    "value": 2,
+    "ability": "Destroy 1 unit",
+    "name": "Luck Bringer"
+  },
+  {
+    "id": "card-44",
+    "color": "red",
+    "power": 1,
+    "value": 2,
+    "ability": "+1 when attacking",
+    "name": "Thunder Lord"
+  },
+  {
+    "id": "card-45",
+    "color": "red",
+    "power": 4,
+    "value": 5,
+    "ability": "Discard 1 card",
+    "name": "Peace Keeper"
+  },
+  {
+    "id": "card-46",
+    "color": "red",
+    "power": 4,
+    "value": 5,
+    "ability": "+1 power this turn",
+    "name": "Moon Dancer"
+  },
+  {
+    "id": "card-47",
+    "color": "red",
+    "power": 4,
+    "value": 1,
+    "ability": "Steal 1 card",
+    "name": "Thunder Lord"
+  },
+  {
+    "id": "card-48",
+    "color": "black",
+    "power": 2,
+    "value": 2,
+    "ability": "Discard 1 card",
+    "name": "Luck Bringer"
+  },
+  {
+    "id": "card-49",
+    "color": "black",
+    "power": 1,
+    "value": 2,
+    "ability": "Discard 1 card",
+    "name": "Sky Rider"
+  },
+  {
+    "id": "card-50",
+    "color": "black",
+    "power": 3,
+    "value": 4,
+    "ability": "Discard 1 card",
+    "name": "Sun Priest"
+  },
+  {
+    "id": "card-51",
+    "color": "black",
+    "power": 5,
+    "value": 2,
+    "ability": "Double power vs blue",
+    "name": "Mystic Guardian"
+  },
+  {
+    "id": "card-52",
+    "color": "black",
+    "power": 1,
+    "value": 3,
+    "ability": "Immune to black",
+    "name": "Mystic Guardian"
+  },
+  {
+    "id": "card-53",
+    "color": "black",
+    "power": 2,
+    "value": 1,
+    "ability": "+1 value when played",
+    "name": "Hope Beacon"
+  },
+  {
+    "id": "card-54",
+    "color": "black",
+    "power": 4,
+    "value": 3,
+    "ability": "+1 when defending",
+    "name": "Time Mage"
+  },
+  {
+    "id": "card-55",
+    "color": "black",
+    "power": 5,
+    "value": 1,
+    "ability": "+1 power this turn",
+    "name": "Time Mage"
+  },
+  {
+    "id": "card-56",
+    "color": "black",
+    "power": 2,
+    "value": 2,
+    "ability": "+1 power this turn",
+    "name": "Ice Elemental"
+  },
+  {
+    "id": "card-57",
+    "color": "black",
+    "power": 2,
+    "value": 1,
+    "ability": "Heal 1 unit",
+    "name": "Ice Elemental"
+  },
+  {
+    "id": "card-58",
+    "color": "black",
+    "power": 4,
+    "value": 5,
+    "ability": "Gain extra turn",
+    "name": "Light Bearer"
+  },
+  {
+    "id": "card-59",
+    "color": "black",
+    "power": 3,
+    "value": 1,
+    "ability": "Destroy 1 unit",
+    "name": "Order Paladin"
+  },
+  {
+    "id": "card-60",
+    "color": "black",
+    "power": 5,
+    "value": 2,
+    "ability": "Steal 1 card",
+    "name": "Life Cleric"
+  },
+  {
+    "id": "card-61",
+    "color": "black",
+    "power": 4,
+    "value": 1,
+    "ability": "Immune to black",
+    "name": "Shadow Warrior"
+  },
+  {
+    "id": "card-62",
+    "color": "black",
+    "power": 3,
+    "value": 3,
+    "ability": "Gain extra turn",
+    "name": "War Chief"
+  },
+  {
+    "id": "card-63",
+    "color": "black",
+    "power": 3,
+    "value": 2,
+    "ability": "Double power vs red",
+    "name": "Holy Crusader"
+  },
+  {
+    "id": "card-64",
+    "color": "white",
+    "power": 4,
+    "value": 1,
+    "ability": "Heal 1 unit",
+    "name": "Forest Druid"
+  },
+  {
+    "id": "card-65",
+    "color": "white",
+    "power": 3,
+    "value": 4,
+    "ability": "+1 power this turn",
+    "name": "Arcane Scholar"
+  },
+  {
+    "id": "card-66",
+    "color": "white",
+    "power": 4,
+    "value": 4,
+    "ability": "Revive from graveyard",
+    "name": "Shadow Warrior"
+  },
+  {
+    "id": "card-67",
+    "color": "white",
+    "power": 4,
+    "value": 5,
+    "ability": "Heal 1 unit",
+    "name": "Forest Druid"
+  },
+  {
+    "id": "card-68",
+    "color": "white",
+    "power": 5,
+    "value": 1,
+    "ability": "Destroy 1 unit",
+    "name": "Frost Witch"
+  },
+  {
+    "id": "card-69",
+    "color": "white",
+    "power": 1,
+    "value": 5,
+    "ability": "Immune to black",
+    "name": "Dream Walker"
+  },
+  {
+    "id": "card-70",
+    "color": "white",
+    "power": 2,
+    "value": 2,
+    "ability": "Draw 1 card",
+    "name": "Mystic Guardian"
+  },
+  {
+    "id": "card-71",
+    "color": "white",
+    "power": 3,
+    "value": 1,
+    "ability": "+1 when defending",
+    "name": "Soul Reaper"
+  },
+  {
+    "id": "card-72",
+    "color": "white",
+    "power": 1,
+    "value": 4,
+    "ability": "Steal 1 card",
+    "name": "Rogue Assassin"
+  },
+  {
+    "id": "card-73",
+    "color": "white",
+    "power": 5,
+    "value": 4,
+    "ability": "Double power vs red",
+    "name": "Death Knight"
+  },
+  {
+    "id": "card-74",
+    "color": "white",
+    "power": 2,
+    "value": 3,
+    "ability": "Copy enemy ability",
+    "name": "Mountain Giant"
+  },
+  {
+    "id": "card-75",
+    "color": "white",
+    "power": 4,
+    "value": 4,
+    "ability": "+1 when attacking",
+    "name": "Mystic Guardian"
+  },
+  {
+    "id": "card-76",
+    "color": "white",
+    "power": 5,
+    "value": 3,
+    "ability": "Gain extra turn",
+    "name": "War Chief"
+  },
+  {
+    "id": "card-77",
+    "color": "white",
+    "power": 5,
+    "value": 4,
+    "ability": "Destroy 1 unit",
+    "name": "Storm Knight"
+  },
+  {
+    "id": "card-78",
+    "color": "white",
+    "power": 1,
+    "value": 2,
+    "ability": "Gain extra turn",
+    "name": "Divine Angel"
+  },
+  {
+    "id": "card-79",
+    "color": "white",
+    "power": 2,
+    "value": 1,
+    "ability": "Gain extra turn",
+    "name": "Demon Hunter"
+  }
+]

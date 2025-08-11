@@ -1,4 +1,4 @@
-export type CardColor = 'green' | 'blue' | 'red' | 'black' | 'white';
+export type CardColor = 'green' | 'blue' | 'red' | 'black' | 'white' | 'gray';
 
 export interface GameCard {
   id: string;
@@ -29,7 +29,10 @@ export interface GameState {
   currentPlayerIndex: number;
   deck: GameCard[];
   discardPile: GameCard[];
-  phase: 'draw' | 'play' | 'attack' | 'reinforce' | 'discard';
+  phase: 'draw' | 'play' | 'attack' | 'discard';
+  actionChosen?: 'attack' | 'discard' | null;
+  cardsDrawnThisTurn?: number; // track cards drawn in current turn
+  attacksUsedThisTurn?: number;
   gameEnded: boolean;
   winner?: string;
   finalTurnTrigger?: string; // player who triggered final turn

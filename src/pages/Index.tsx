@@ -1,7 +1,7 @@
-import { GameManager } from '@/components/game/GameManager';
+import { MultiplayerGameManager } from '@/components/game/MultiplayerGameManager.tsx';
 
 const Index = () => {
-  return <GameManager />;
+  return <MultiplayerGameManager />;
 };
 
 export default Index;

@@ -25,6 +25,8 @@ const getCardColorClasses = (color: CardColor) => {
       return 'bg-gradient-to-br from-card-black to-card-black/80 border-card-black/50';
     case 'white':
       return 'bg-gradient-to-br from-card-white to-card-white/80 border-card-white/50 text-card-black';
+    case 'gray':
+      return 'bg-gradient-to-br from-card-white to-card-black/80 border-card-black/50';
     default:
       return 'bg-gradient-card border-border';
   }
