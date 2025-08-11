@@ -1,9 +1,7 @@
 import { io, Socket } from 'socket.io-client';
 import { GameState } from '@/types/game';
 
-const serverIp = import.meta.env.VITE_SERVER_URL || 'http://localhost';
-const serverPort = import.meta.env.PORT || import.meta.env.FALLBACK_PORT_BOO;
-const serverUrl = serverIp + ':' + serverPort;
+const serverUrl = import.meta.env.VITE_SERVER_URL || 'http://localhost:3000';
 
 export class WebSocketService {
   private socket: Socket | null = null;
