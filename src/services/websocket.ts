@@ -37,7 +37,7 @@ export class WebSocketService {
         this.socket = io(serverUrl, {
           forceNew: true,
           transports: ['websocket', 'polling'], // Start with polling only to avoid websocket issues
-          timeout: 30000,
+          timeout: 60000,
           reconnection: false // Disable automatic reconnection
         });
 

@@ -51,7 +51,7 @@ class WebSocketSingleton {
           this.isConnected = false;
         }
 
-        console.log('🔄 Creating new WebSocket connection...');
+        console.log('🔄 Creating new WebSocketSingleton connection...');
         
         // Use environment variable or default to localhost
         const serverUrl = import.meta.env.VITE_SERVER_URL || 'http://localhost:3000';
@@ -67,7 +67,7 @@ class WebSocketSingleton {
         const connectionTimeout = setTimeout(() => {
           console.error('⏰ Connection timeout');
           reject(new Error('Connection timeout'));
-        }, 10000);
+        }, 60000);
 
         const onConnect = () => {
           console.log('✅ Connected to server:', this.socket?.id);
