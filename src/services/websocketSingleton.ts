@@ -166,18 +166,18 @@ class WebSocketSingleton {
     return false;
   }
 
-  playUnit(cardIds: string[]): boolean {
+  playParty(cardIds: string[]): boolean {
     if (this.currentRoomId && this.socket && this.isConnected) {
-      this.socket.emit('playUnit', { roomId: this.currentRoomId, cardIds });
+      this.socket.emit('playParty', { roomId: this.currentRoomId, cardIds });
       return true;
     }
     return false;
   }
 
-  attackUnit(attackerCardId: string, targetUnitId: string): boolean {
+  attackParty(attackerCardId: string, targetPartyId: string): boolean {
     if (this.currentRoomId && this.socket && this.isConnected) {
-      console.log(`⚔️ Attacking unit ${targetUnitId} with card ${attackerCardId}`);
-      this.socket.emit('attackUnit', { roomId: this.currentRoomId, attackerCardId, targetUnitId });
+      console.log(`⚔️ Attacking party ${targetPartyId} with card ${attackerCardId}`);
+      this.socket.emit('attackParty', { roomId: this.currentRoomId, attackerCardId, targetPartyId });
       return true;
     }
     console.error('❌ Failed to attack unit - connection issue');
@@ -240,13 +240,13 @@ class WebSocketSingleton {
     return false;
   }
 
-  reinforceUnit(cardId: string, unitId: string): boolean {
+  reinforceParty(cardId: string, partyId: string): boolean {
     if (this.currentRoomId && this.socket && this.isConnected) {
-      console.log(`🔧 Reinforcing unit ${unitId} with card ${cardId}`);
-      this.socket.emit('reinforceUnit', { roomId: this.currentRoomId, cardId, unitId });
+      console.log(`🔧 Reinforcing party ${partyId} with card ${cardId}`);
+      this.socket.emit('reinforceParty', { roomId: this.currentRoomId, cardId, partyId });
       return true;
     }
-    console.error('❌ Failed to reinforce unit - connection issue');
+    console.error('❌ Failed to reinforce party - connection issue');
     return false;
   }
 

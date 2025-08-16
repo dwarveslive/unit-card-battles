@@ -51,7 +51,7 @@ export const createInitialGameState = (playerNames) => {
       id: `player-${i}`,
       name: playerNames[i],
       hand,
-      units: [],
+      parties: [],
       graveyard: []
     });
   }
@@ -69,7 +69,7 @@ export const createInitialGameState = (playerNames) => {
     cardsDrawnThisTurn: 0,
     attacksUsedThisTurn: 0,
     gameEnded: false,
-    finalTurnRemaining: 0,
+    finalTurnRemaining: null,
     abilitySystem: null // Will be initialized when needed
   };
   
@@ -80,7 +80,7 @@ export const createInitialGameState = (playerNames) => {
   const allCards = [
     ...gameState.deck,
     ...gameState.discardPile,
-    ...gameState.players.flatMap(p => [...p.hand, ...p.graveyard, ...p.units.flatMap(u => u.cards)])
+    ...gameState.players.flatMap(p => [...p.hand, ...p.graveyard, ...p.parties.flatMap(party => party.cards)])
   ];
   
   gameState.abilitySystem.initializeCardAbilities(allCards);
@@ -88,104 +88,147 @@ export const createInitialGameState = (playerNames) => {
   return gameState;
 };
 
-export const canFormUnit = (cards) => {
+export const canFormParty = (cards) => {
   if (cards.length < 3) return false;
   
   const whiteCards = cards.filter(card => card.color === 'white');
   const blackCards = cards.filter(card => card.color === 'black');
-  const nonWhiteCards = cards.filter(card => card.color !== 'white');
+  const grayCards = cards.filter(card => card.color === 'gray');
+  const nonWhiteNonGrayCards = cards.filter(card => card.color !== 'white' && card.color !== 'gray');
   
-  // Black cards can't be combined with white cards
+  // Black cards can't be combined with white cards (gray cards are exceptions)
   if (whiteCards.length > 0 && blackCards.length > 0) {
     return false;
   }
   
-  // Check if all cards are the same color
+  // Check if all cards are the same color (including all gray)
   if (cards.every(card => card.color === cards[0].color)) {
     return true;
   }
   
-  // Check if there are white cards and all non-white cards are the same color
-  if (whiteCards.length > 0 && nonWhiteCards.length > 0) {
-    const firstNonWhiteColor = nonWhiteCards[0].color;
-    return nonWhiteCards.every(card => card.color === firstNonWhiteColor);
+  // Gray cards can be combined with any other cards, so filter them out for color checking
+  const nonGrayCards = cards.filter(card => card.color !== 'gray');
+  
+  // If only gray cards, always invalid
+  if (nonGrayCards.length === 0) {
+    return false;
+  }
+  
+  // Check if non-gray cards follow the existing color rules
+  const nonGrayWhiteCards = nonGrayCards.filter(card => card.color === 'white');
+  const nonGrayBlackCards = nonGrayCards.filter(card => card.color === 'black');
+  const nonGrayNonWhiteCards = nonGrayCards.filter(card => card.color !== 'white');
+  
+  // Black cards can't be combined with white cards
+  if (nonGrayWhiteCards.length > 0 && nonGrayBlackCards.length > 0) {
+    return false;
+  }
+  
+  // Check if all non-gray cards are the same color
+  if (nonGrayCards.every(card => card.color === nonGrayCards[0].color)) {
+    return true;
+  }
+  
+  // Check if there are white cards and all non-white non-gray cards are the same color
+  if (nonGrayWhiteCards.length > 0 && nonGrayNonWhiteCards.length > 0) {
+    const firstNonWhiteColor = nonGrayNonWhiteCards[0].color;
+    return nonGrayNonWhiteCards.every(card => card.color === firstNonWhiteColor);
   }
   
   return false;
 };
 
-export const createUnit = (cards, playerId) => {
+export const createParty = (cards, playerId) => {
   const totalValue = cards.reduce((sum, card) => sum + card.value, 0);
   
   return {
-    id: `unit-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    id: `party-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
     cards,
     playerId,
     totalValue
   };
 };
 
-// Enhanced unit creation with ability processing
-export const createUnitWithAbilities = async (gameState, cards, playerId, context = {}) => {
-  const unit = createUnit(cards, playerId);
+// Enhanced party creation with ability processing
+export const createPartyWithAbilities = async (gameState, cards, playerId, context = {}) => {
+  const party = createParty(cards, playerId);
   
   if (gameState.abilitySystem) {
     try {
-      const abilityResult = await gameState.abilitySystem.unitManager.processUnitFormationAbilities(
+      const abilityResult = await gameState.abilitySystem.partyManager.processPartyFormationAbilities(
         cards, 
         playerId, 
         context
       );
       
       return {
-        unit,
+        party,
         abilityResults: abilityResult,
         requiresPlayerInput: abilityResult.requiresPlayerInput || []
       };
     } catch (error) {
-      console.error('Error processing unit formation abilities:', error);
+      console.error('Error processing party formation abilities:', error);
     }
   }
   
-  return { unit, abilityResults: null, requiresPlayerInput: [] };
+  return { party, abilityResults: null, requiresPlayerInput: [] };
 };
 
 export const calculateTotalValue = (player) => {
-  return player.units.reduce((sum, unit) => sum + unit.totalValue, 0);
+  return player.parties.reduce((sum, party) => sum + party.totalValue, 0);
 };
 
 export const checkWinCondition = (players) => {
   for (const player of players) {
     const totalValue = calculateTotalValue(player);
-    if (totalValue >= 50) {
-      return { winner: player, finalTurnTriggered: true };
+    const graveyardPenalty = player.graveyard.reduce((sum, card) => sum + card.value, 0);
+    const finalScore = totalValue - graveyardPenalty;
+    
+    if (finalScore >= 50) {
+      return { 
+        winner: player, 
+        finalTurnTriggered: true,
+        winningScore: finalScore,
+        triggeringPlayerId: player.id 
+      };
     }
   }
-  return {};
+  return { finalTurnTriggered: false };
 };
 
-export const canAddCardToUnit = (card, unit) => {
-  const unitColors = [...new Set(unit.cards.map(c => c.color))];
+export const canAddCardToParty = (card, party) => {
+  // Gray cards can always be added to any party
+  if (card.color === 'gray') {
+    return true;
+  }
   
-  // Black cards can't be combined with white cards
-  const hasWhite = unitColors.includes('white') || card.color === 'white';
-  const hasBlack = unitColors.includes('black') || card.color === 'black';
+  const partyColors = [...new Set(party.cards.map(c => c.color))];
+  const nonGrayPartyColors = [...new Set(party.cards.filter(c => c.color !== 'gray').map(c => c.color))];
+  
+  // Black cards can't be combined with white cards (excluding gray)
+  const hasWhite = nonGrayUnitColors.includes('white') || card.color === 'white';
+  const hasBlack = nonGrayUnitColors.includes('black') || card.color === 'black';
   
   if (hasWhite && hasBlack) {
     return false;
   }
   
-  // Check if card can be added based on existing unit colors
-  if (unit.cards.every(c => c.color === unit.cards[0].color)) {
-    // Unit is all same color, can add same color or white (if not black unit)
-    return card.color === unit.cards[0].color || 
-           (card.color === 'white' && unit.cards[0].color !== 'black');
+  // If party only has gray cards, any non-conflicting color can be added
+  if (nonGrayPartyColors.length === 0) {
+    return true;
   }
   
-  // Unit has mixed colors (must include white), can add same non-white color or more white
-  const nonWhiteColors = [...new Set(unit.cards.filter(c => c.color !== 'white').map(c => c.color))];
-  if (nonWhiteColors.length === 1) {
-    return card.color === nonWhiteColors[0] || card.color === 'white';
+  // Check if card can be added based on existing non-gray party colors
+  if (nonGrayPartyColors.length === 1) {
+    // Party has one non-gray color (plus possibly gray), can add same color or white (if not black party)
+    return card.color === nonGrayPartyColors[0] || 
+           (card.color === 'white' && nonGrayPartyColors[0] !== 'black');
+  }
+  
+  // Party has mixed non-gray colors (must include white), can add same non-white color or more white
+  const nonGrayNonWhiteColors = [...new Set(party.cards.filter(c => c.color !== 'white' && c.color !== 'gray').map(c => c.color))];
+  if (nonGrayNonWhiteColors.length === 1) {
+    return card.color === nonGrayNonWhiteColors[0] || card.color === 'white';
   }
   
   return false;
@@ -254,7 +297,7 @@ export const calculateGraveyardValue = (graveyard) => {
 };
 
 export const calculatePlayerScore = (player) => {
-  const unitScore = player.units.reduce((sum, unit) => sum + unit.totalValue, 0);
+  const partyScore = player.parties.reduce((sum, party) => sum + party.totalValue, 0);
   const graveyardPenalty = calculateGraveyardValue(player.graveyard);
-  return unitScore - graveyardPenalty;
+  return partyScore - graveyardPenalty;
 };

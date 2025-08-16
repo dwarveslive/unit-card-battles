@@ -9,7 +9,7 @@ export interface GameCard {
   name: string;
 }
 
-export interface Unit {
+export interface Party {
   id: string;
   cards: GameCard[];
   playerId: string;
@@ -20,7 +20,7 @@ export interface Player {
   id: string;
   name: string;
   hand: GameCard[];
-  units: Unit[];
+  parties: Party[];
   graveyard: GameCard[];
 }
 

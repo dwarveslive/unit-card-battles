@@ -3,6 +3,7 @@ import { GameState, BattleState, DrawChoice, GameCard, Unit } from '@/types/game
 import { GameBoard } from './GameBoard';
 import { BattleModal } from './BattleModal';
 import { KidnapModal } from './KidnapModal';
+import { VictoryModal } from './VictoryModal';
 import { RoomConnection } from '@/components/lobby/RoomConnection';
 import { GameLobby } from '@/components/lobby/GameLobby';
 import { ReconnectionPrompt } from '@/components/lobby/ReconnectionPrompt';
@@ -51,6 +52,20 @@ export const MultiplayerGameManager: React.FC = () => {
   const [kidnapChoice, setKidnapChoice] = useState<{ targetUnit: Unit; availableCards: GameCard[] } | null>(null);
   const [cardsDrawn, setCardsDrawn] = useState(0);
   const [unitsPlayedThisTurn, setUnitsPlayedThisTurn] = useState(0);
+  
+  // Victory modal state
+  const [victoryData, setVictoryData] = useState<{
+    winner: string;
+    winnerScore: number;
+    finalScores: Array<{
+      playerId: string;
+      playerName: string;
+      score: number;
+      unitScore: number;
+      graveyardPenalty: number;
+      mostValuableUnit: any;
+    }>;
+  } | null>(null);
 
   const { toast } = useToast();
   const { saveSession, loadSession, clearSession, hasStoredSession, attemptReconnection } = useGamePersistence();
@@ -228,6 +243,21 @@ export const MultiplayerGameManager: React.FC = () => {
             title: "Attack Blocked",
             description: data.reason,
             variant: "destructive",
+          });
+        });
+
+        // Add game ended event handler
+        wsService.current.onGameEnded((data) => {
+          console.log('🏆 Game ended event received:', data);
+          setVictoryData({
+            winner: data.winner,
+            winnerScore: data.winnerScore,
+            finalScores: data.finalScores
+          });
+          
+          toast({
+            title: "🎉 Game Over!",
+            description: `${data.winner} wins with ${data.winnerScore} points!`,
           });
         });
 
@@ -425,6 +455,21 @@ export const MultiplayerGameManager: React.FC = () => {
     }
     setKidnapChoice(null);
   }, []);
+
+  // Victory modal handlers
+  const handleNewGameFromVictory = useCallback(() => {
+    setVictoryData(null);
+    setGameState(null);
+    // Don't need to start a new game automatically, let them go back to lobby
+    setAppState('waiting');
+  }, []);
+
+  const handleReturnToLobbyFromVictory = useCallback(() => {
+    setVictoryData(null);
+    setGameState(null);
+    setAppState('lobby');
+    clearSession();
+  }, [clearSession]);
 
   // UI handlers
   const handleCardSelect = useCallback((cardId: string) => {
@@ -699,6 +744,18 @@ export const MultiplayerGameManager: React.FC = () => {
           availableCards={kidnapChoice.availableCards}
           onKidnapChoice={handleKidnap}
           onSkip={handleSkipKidnap}
+        />
+      )}
+
+      {/* Victory Modal */}
+      {victoryData && (
+        <VictoryModal
+          isOpen={!!victoryData}
+          winner={victoryData.winner}
+          winnerScore={victoryData.winnerScore}
+          finalScores={victoryData.finalScores}
+          onNewGame={handleNewGameFromVictory}
+          onReturnToLobby={handleReturnToLobbyFromVictory}
         />
       )}
     </div>

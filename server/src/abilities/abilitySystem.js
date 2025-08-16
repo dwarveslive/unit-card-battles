@@ -66,50 +66,52 @@ export class AbilityParser {
     const text = abilityText.toLowerCase().trim();
 
     // Determine ability type and parse accordingly
-    if (text.includes('double') && text.includes('vs')) {
-      ability.type = 'conditional_power_modifier';
-      ability.isTriggered = true;
-      this.parseConditionalModifier(text, ability);
-    } else if (text.includes('+') && (text.includes('when attacking') || text.includes('when defending'))) {
-      ability.type = 'situational_modifier';
-      ability.isTriggered = true;
-      this.parseSituationalModifier(text, ability);
-    } else if (text.includes('+') && text.includes('this turn')) {
-      ability.type = 'temporary_modifier';
-      ability.isActivated = true;
-      this.parseTemporaryModifier(text, ability);
-    } else if (text.includes('+') && text.includes('when played')) {
+    if (text.includes('when this card is played into a party')) {
       ability.type = 'play_trigger';
       ability.isTriggered = true;
       this.parsePlayTrigger(text, ability);
-    } else if (text.includes('immune to')) {
+    } else if (text.includes('when this card is in a battle')) {
+      ability.type = 'battle_trigger';
+      ability.isTriggered = true;
+      this.parseBattleTrigger(text, ability);
+    } else if (text.includes('every time this card defeats')) {
+      ability.type = 'defeat_trigger';
+      ability.isTriggered = true;
+      this.parseDefeatTrigger(text, ability);
+    } else if (text.includes('double') && (text.includes('vs') || text.includes('against') || text.includes('when battling'))) {
+      ability.type = 'conditional_power_modifier';
+      ability.isTriggered = true;
+      this.parseConditionalModifier(text, ability);
+    } else if (text.includes('increase') && text.includes('power') && (text.includes('when attacking') || text.includes('when defending'))) {
+      ability.type = 'situational_modifier';
+      ability.isTriggered = true;
+      this.parseSituationalModifier(text, ability);
+    } else if (text.includes('immune to abilities from')) {
       ability.type = 'immunity';
       ability.isPassive = true;
       this.parseImmunity(text, ability);
-    } else if (text.includes('destroy')) {
-      ability.type = 'destruction';
+    } else if (text.includes('can defend other parties')) {
+      ability.type = 'defend_others';
+      ability.isPassive = true;
+      this.parseDefendOthers(text, ability);
+    } else if (text.includes('allows') && text.includes('card of a different color')) {
+      ability.type = 'color_mixing';
+      ability.isPassive = true;
+      this.parseColorMixing(text, ability);
+    } else if (text.includes('if you have') && text.includes('double power')) {
+      ability.type = 'conditional_manual_power';
       ability.isActivated = true;
-      this.parseDestruction(text, ability);
-    } else if (text.includes('steal')) {
-      ability.type = 'theft';
+      this.parseConditionalManualPower(text, ability);
+    } else if (text.includes('increase the power of') && text.includes('card from this party')) {
+      ability.type = 'manual_power_boost';
       ability.isActivated = true;
-      this.parseTheft(text, ability);
-    } else if (text.includes('draw')) {
-      ability.type = 'card_draw';
+      this.parseManualPowerBoost(text, ability);
+    } else {
+      // If we can't categorize it, assume it's a manual activation ability
+      // This covers edge cases and ensures all abilities have some categorization
+      ability.type = 'unknown_activation';
       ability.isActivated = true;
-      this.parseCardDraw(text, ability);
-    } else if (text.includes('discard')) {
-      ability.type = 'discard';
-      ability.isActivated = true;
-      this.parseDiscard(text, ability);
-    } else if (text.includes('revive')) {
-      ability.type = 'revival';
-      ability.isActivated = true;
-      this.parseRevival(text, ability);
-    } else if (text.includes('copy')) {
-      ability.type = 'ability_copy';
-      ability.isActivated = true;
-      this.parseAbilityCopy(text, ability);
+      this.parseUnknownActivation(text, ability);
     }
 
     return ability;
@@ -285,6 +287,106 @@ export class AbilityParser {
       type: 'copy_ability',
       target: KEYWORDS.TARGET_CARD,
       duration: KEYWORDS.THIS_TURN
+    });
+  }
+
+  static parseBattleTrigger(text, ability) {
+    // "When this card is in a battle, steal 1 random card from the opponent's hand"
+    if (text.includes('steal')) {
+      this.parseTheft(text, ability);
+    } else if (text.includes('discard')) {
+      this.parseDiscard(text, ability);
+    } else if (text.includes('double')) {
+      this.parseConditionalModifier(text, ability);
+    }
+  }
+
+  static parseDefeatTrigger(text, ability) {
+    // "Every time this card defeats another card, it gains 1 additional value until the end of the game"
+    if (text.includes('gains') && text.includes('value')) {
+      ability.effects.push({
+        type: 'modify_attribute',
+        target: KEYWORDS.THIS_CARD,
+        attribute: KEYWORDS.VALUE,
+        operation: KEYWORDS.INCREASE,
+        amount: 1,
+        timing: 'on_defeat',
+        permanent: true
+      });
+    }
+  }
+
+  static parseDefendOthers(text, ability) {
+    // "Can defend other parties"
+    ability.effects.push({
+      type: 'defend_others',
+      target: KEYWORDS.TARGET_UNIT,
+      scope: 'any_party'
+    });
+  }
+
+  static parseColorMixing(text, ability) {
+    // "Allows 1 card of a different color in this party. Can stack."
+    const amountMatch = text.match(/allows (\d+)/);
+    const amount = amountMatch ? parseInt(amountMatch[1]) : 1;
+    
+    ability.effects.push({
+      type: 'color_mixing',
+      allowedDifferentColors: amount,
+      canStack: text.includes('can stack')
+    });
+  }
+
+  static parseConditionalManualPower(text, ability) {
+    // "Doesn't do anything. If you have Stone, double power of a defending card. Doesn't stack."
+    const conditionMatch = text.match(/if you have (\w+)/);
+    const condition = conditionMatch ? conditionMatch[1].toLowerCase() : null;
+    
+    const isDefending = text.includes('defending');
+    const isAttacking = text.includes('attacking');
+    const isDoubling = text.includes('double');
+    
+    ability.conditions.push({
+      type: 'requires_item',
+      item: condition
+    });
+    
+    ability.effects.push({
+      type: 'manual_power_modification',
+      target: KEYWORDS.TARGET_CARD,
+      attribute: KEYWORDS.POWER,
+      operation: isDoubling ? KEYWORDS.DOUBLE : KEYWORDS.INCREASE,
+      amount: isDoubling ? 2 : 1,
+      scope: isDefending ? 'defending' : (isAttacking ? 'attacking' : 'any'),
+      canStack: !text.includes("doesn't stack")
+    });
+  }
+
+  static parseManualPowerBoost(text, ability) {
+    // "Increase the power of an attacking card from this party by 1. Doesn't stack."
+    const amountMatch = text.match(/by (\d+)/);
+    const amount = amountMatch ? parseInt(amountMatch[1]) : 1;
+    
+    const isDefending = text.includes('defending');
+    const isAttacking = text.includes('attacking');
+    
+    ability.effects.push({
+      type: 'manual_power_modification',
+      target: KEYWORDS.TARGET_CARD,
+      attribute: KEYWORDS.POWER,
+      operation: KEYWORDS.INCREASE,
+      amount: amount,
+      scope: isDefending ? 'defending' : (isAttacking ? 'attacking' : 'any'),
+      source: 'same_party',
+      canStack: !text.includes("doesn't stack")
+    });
+  }
+
+  static parseUnknownActivation(text, ability) {
+    // Fallback for unknown abilities - treat as generic manual activation
+    ability.effects.push({
+      type: 'generic_activation',
+      description: text
     });
   }
 }

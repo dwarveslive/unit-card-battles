@@ -5,10 +5,12 @@ import cors from "cors";
 import {
   createInitialGameState, 
   resolveBattle, 
-  canFormUnit, 
-  createUnit,
-  canAddCardToUnit,
-  checkWinCondition 
+  canFormParty, 
+  createParty,
+  createPartyWithAbilities,
+  canAddCardToParty,
+  checkWinCondition,
+  resolveBattleWithAbilities 
 } from "./gameLogic.js";
 
 const app = express();
@@ -49,6 +51,11 @@ const safeDeepClone = (obj, seen = new WeakMap()) => {
     return obj;
   }
   
+  // Handle functions (skip them)
+  if (typeof obj === 'function') {
+    return undefined;
+  }
+  
   // Handle circular references
   if (seen.has(obj)) {
     return {}; // Return empty object for circular references
@@ -69,11 +76,24 @@ const safeDeepClone = (obj, seen = new WeakMap()) => {
   const cloned = {};
   for (const key in obj) {
     if (obj.hasOwnProperty(key)) {
-      // Skip problematic properties that cause circular references
-      if (key === 'abilitySystem') {
-        continue; // Skip the ability system to avoid circular refs
+      // Skip problematic properties that cause circular references or are not serializable
+      if (key === 'abilitySystem' || 
+          key === 'temporaryEffects' ||
+          key === 'effectExecutor' ||
+          key === 'battleManager' ||
+          key === 'unitManager' ||
+          key === 'activatedManager' ||
+          key === 'parsedAbility') {
+        continue; // Skip ability system related properties to avoid circular refs
       }
-      cloned[key] = safeDeepClone(obj[key], seen);
+      
+      try {
+        cloned[key] = safeDeepClone(obj[key], seen);
+      } catch (error) {
+        // If cloning a property fails, skip it
+        console.warn(`Skipping property ${key} due to cloning error:`, error.message);
+        continue;
+      }
     }
   }
   
@@ -133,53 +153,99 @@ const broadcastGameState = (io, roomId, gameState) => {
 };
 
 // Helper function to advance turn
-const advanceTurn = (gameState) => {
+const advanceTurn = (gameState, roomId) => {
   gameState.currentPlayerIndex = (gameState.currentPlayerIndex + 1) % gameState.players.length;
   gameState.phase = 'draw';
-  
+
   // Reset turn-specific state
   gameState.actionChosen = null;
   gameState.cardsDrawnThisTurn = 0;
   gameState.attacksUsedThisTurn = 0; // Reset attacks used
-  
-  if (gameState.finalTurnTrigger && gameState.finalTurnRemaining > 0) {
-    gameState.finalTurnRemaining--;
-    if (gameState.finalTurnRemaining === 0) {
-      // Determine winner by highest score
-      const scores = gameState.players.map(p => ({
-        player: p,
-        score: p.units.reduce((sum, unit) => sum + unit.totalValue, 0) - 
-               p.graveyard.reduce((sum, card) => sum + card.value, 0)
-      }));
-      scores.sort((a, b) => b.score - a.score);
-      
-      // Check if the winning player has 50 or more points
-      if (scores[0].score >= 50) {
-        gameState.gameEnded = true;
-        gameState.winner = scores[0].player.name;
-      } else {
-        // Reset final turn trigger and remaining turns
+  gameState.partyPlayedThisTurn = false; // Reset party play flag
+
+    // Enhanced final round logic
+    if (gameState.finalTurnTrigger) {
+      // Find the triggering player
+      const triggeringPlayer = gameState.players.find(p => p.id === gameState.finalTurnTrigger);
+      const triggeringPlayerScore = triggeringPlayer
+        ? triggeringPlayer.units.reduce((sum, unit) => sum + unit.totalValue, 0) - 
+          triggeringPlayer.graveyard.reduce((sum, card) => sum + card.value, 0)
+        : 0;
+
+      // Get the current player (the one who just finished their turn)
+      const currentPlayer = gameState.players[gameState.currentPlayerIndex === 0 ? gameState.players.length - 1 : gameState.currentPlayerIndex - 1];
+
+      // If their score drops below 50, cancel the final round and continue normal play
+      if (!triggeringPlayer || triggeringPlayerScore < 50) {
+        console.log(`🔄 Final round cancelled - triggering player's score dropped to ${triggeringPlayerScore}`);
         gameState.finalTurnTrigger = null;
-        gameState.finalTurnRemaining = 0; // Or some other appropriate value
+        gameState.finalTurnRemaining = 0;
+        gameState.winningScore = null;
+        io.to(roomId).emit('finalRoundCancelled', {
+          reason: 'Triggering player\'s score dropped below 50',
+          newScore: triggeringPlayerScore
+        });
+        // Don't return - continue with normal turn advancement
+      }
+      // Only decrement if this is NOT the triggering player's turn ending
+      else if (gameState.finalTurnRemaining > 0 && currentPlayer.id !== gameState.finalTurnTrigger) {
+        gameState.finalTurnRemaining--;
+        console.log(`⏰ Final round: ${gameState.finalTurnRemaining} turns remaining (Player ${currentPlayer.name} finished their turn)`);
+        
+        // Check if we've completed the final round
+        if (gameState.finalTurnRemaining === 0) {
+          // Calculate final scores for all players
+          const finalScores = gameState.players.map(player => {
+            const unitScore = player.units.reduce((sum, unit) => sum + unit.totalValue, 0);
+            const graveyardPenalty = player.graveyard.reduce((sum, card) => sum + card.value, 0);
+            const score = unitScore - graveyardPenalty;
+            
+            // Find most valuable unit
+            const mostValuableUnit = player.units.length > 0 
+              ? player.units.reduce((max, unit) => unit.totalValue > max.totalValue ? unit : max)
+              : null;
+            
+            return {
+              playerId: player.id,
+              playerName: player.name,
+              score: score,
+              unitScore: unitScore,
+              graveyardPenalty: graveyardPenalty,
+              mostValuableUnit: mostValuableUnit
+            };
+          });
+          
+          // Sort by score to find winner
+          finalScores.sort((a, b) => b.score - a.score);
+          const winnerData = finalScores[0];
+          
+          console.log(`🏆 Game ending - Winner: ${winnerData.playerName} with score ${winnerData.score}`);
+          
+          // End the game
+          gameState.gameEnded = true;
+          gameState.winner = winnerData.playerName;
+          gameState.finalScore = winnerData.score;
+          
+          // Emit comprehensive game end event with all player data
+          io.to(roomId).emit('gameEnded', {
+            winner: winnerData.playerName,
+            winnerScore: winnerData.score,
+            finalScores: finalScores,
+            gameState: safeDeepClone(gameState)
+          });
+          
+          // Still broadcast the final game state
+          broadcastGameState(io, roomId, gameState);
+          
+          // Stop turn advancement
+          return;
+        }
+      }
+      else if (currentPlayer.id === gameState.finalTurnTrigger) {
+        console.log(`⏳ Final round: Triggering player ${currentPlayer.name} is finishing their turn - not decrementing counter yet`);
       }
     }
-  }
-  
-  // Check if final turn should end
-  // if (gameState.finalTurnTrigger && gameState.finalTurnRemaining > 0) {
-  //   gameState.finalTurnRemaining--;
-  //   if (gameState.finalTurnRemaining === 0) {
-  //     gameState.gameEnded = true;
-  //     // Determine winner by highest score
-  //     const scores = gameState.players.map(p => ({
-  //       player: p,
-  //       score: p.units.reduce((sum, unit) => sum + unit.totalValue, 0) - 
-  //              p.graveyard.reduce((sum, card) => sum + card.value, 0)
-  //     }));
-  //     scores.sort((a, b) => b.score - a.score);
-  //     gameState.winner = scores[0].player.name;
-  //   }
-  // }
+  // ...existing code...
 };
 
 function makeid(length) {
@@ -377,28 +443,62 @@ io.on("connection", (socket) => {
     broadcastGameState(io, roomId, gameState);
   }, []);
 
-  socket.on("playUnit", ({ roomId, cardIds }) => {
+  socket.on("playParty", async ({ roomId, cardIds }) => {
     const room = gameRooms[roomId];
     if (!room || !room.gameState) return;
-    
+
     const gameState = room.gameState;
     const currentPlayer = gameState.players[gameState.currentPlayerIndex];
-    
+
     if (currentPlayer.id !== socket.id || gameState.phase !== 'play') return;
-    
+
+    // Restrict to one party per turn
+    if (gameState.partyPlayedThisTurn) {
+      socket.emit('partyPlayBlocked', { reason: 'You can only play one party per turn.' });
+      return;
+    }
+
     const selectedCards = currentPlayer.hand.filter(card => cardIds.includes(card.id));
-    if (canFormUnit(selectedCards) && selectedCards.length >= 3) {
-      const unit = createUnit(selectedCards, currentPlayer.id);
-      currentPlayer.units.push(unit);
+    if (canFormParty(selectedCards) && selectedCards.length >= 3) {
+      // Use enhanced party creation with ability processing
+      const partyResult = await createPartyWithAbilities(gameState, selectedCards, currentPlayer.id, { roomId });
+      
+      currentPlayer.parties.push(partyResult.party);
       currentPlayer.hand = currentPlayer.hand.filter(card => !cardIds.includes(card.id));
       
-      // Check win condition
-      const { winner, finalTurnTriggered } = checkWinCondition(gameState.players);
-      if (finalTurnTriggered && !gameState.finalTurnTrigger) {
-        gameState.finalTurnTrigger = currentPlayer.id;
-        gameState.finalTurnRemaining = gameState.players.length - 1;
+      // Handle any player input requirements from abilities
+      if (partyResult.requiresPlayerInput && partyResult.requiresPlayerInput.length > 0) {
+        // Emit ability prompts to the player
+        partyResult.requiresPlayerInput.forEach(prompt => {
+          io.to(currentPlayer.id).emit('abilityPrompt', {
+            type: 'partyFormation',
+            cardId: prompt.cardId,
+            effect: prompt.effect,
+            options: prompt.result.options || []
+          });
+        });
       }
-      
+
+      // Mark that a party has been played this turn
+      gameState.partyPlayedThisTurn = true;
+
+      // Check win condition
+      const winCondition = checkWinCondition(gameState.players);
+      if (winCondition.finalTurnTriggered && !gameState.finalTurnTrigger) {
+        gameState.finalTurnTrigger = winCondition.triggeringPlayerId;
+        // Give all OTHER players one turn each to respond
+        gameState.finalTurnRemaining = gameState.players.length - 1;
+        gameState.winningScore = winCondition.winningScore;
+        
+        console.log(`🚨 Final round triggered by party formation - Player: ${winCondition.winner.name}, Score: ${winCondition.winningScore}, Turns remaining: ${gameState.finalTurnRemaining}`);
+        
+        // Notify all players that final round has started
+        io.to(roomId).emit('finalRoundStarted', {
+          triggeringPlayer: winCondition.winner.name,
+          score: winCondition.winningScore
+        });
+      }
+
       broadcastGameState(io, roomId, gameState);
     }
   });
@@ -427,22 +527,22 @@ io.on("connection", (socket) => {
     gameState.actionChosen = action;
     
     if (action === 'attack') {
-      // Check if there are any enemy units on the table
-      const enemyUnits = gameState.players
+      // Check if there are any enemy parties on the table
+      const enemyParties = gameState.players
         .filter(player => player.id !== currentPlayer.id)
-        .flatMap(player => player.units)
-        .filter(unit => unit.cards && unit.cards.length > 0);
+        .flatMap(player => player.parties)
+        .filter(party => party.cards && party.cards.length > 0);
       
-      if (enemyUnits.length === 0) {
-        console.log('❌ Attack blocked - no enemy units on the table');
+      if (enemyParties.length === 0) {
+        console.log('❌ Attack blocked - no enemy parties on the table');
         // Send error message to the player
         socket.emit('attackBlocked', { 
-          reason: 'No enemy units available to attack' 
+          reason: 'No enemy parties available to attack' 
         });
         return;
       }
       
-      console.log(`✅ Attack allowed - found ${enemyUnits.length} enemy units`);
+      console.log(`✅ Attack allowed - found ${enemyParties.length} enemy parties`);
       gameState.phase = 'attack';
     } else if (action === 'discard') {
       gameState.phase = 'discard';
@@ -467,13 +567,13 @@ io.on("connection", (socket) => {
       gameState.discardPile.push(discardedCard);
       
       // End turn
-      advanceTurn(gameState);
+      advanceTurn(gameState, roomId);
       broadcastGameState(io, roomId, gameState);
     }
   });
 
-  socket.on("attackUnit", ({ roomId, attackerCardId, targetUnitId }) => {
-    console.log(`⚔️ Attack initiated - Room: ${roomId}, Attacker: ${attackerCardId}, Target: ${targetUnitId}`);
+  socket.on("attackParty", ({ roomId, attackerCardId, targetPartyId }) => {
+    console.log(`⚔️ Attack initiated - Room: ${roomId}, Attacker: ${attackerCardId}, Target: ${targetPartyId}`);
     
     const room = gameRooms[roomId];
     if (!room || !room.gameState) {
@@ -489,33 +589,33 @@ io.on("connection", (socket) => {
       return;
     }
     
-    // Find attacker card in current player's hand or units
+    // Find attacker card in current player's hand or parties
     let attackerCard = currentPlayer.hand.find(c => c.id === attackerCardId);
     let attackerFromHand = true;
     
     if (!attackerCard) {
-      // If not in hand, check units
-      attackerCard = currentPlayer.units.flatMap(u => u.cards).find(c => c.id === attackerCardId);
+      // If not in hand, check parties
+      attackerCard = currentPlayer.parties.flatMap(p => p.cards).find(c => c.id === attackerCardId);
       attackerFromHand = false;
     }
     
     if (!attackerCard) {
-      console.log('❌ Attacker card not found in player hand or units');
+      console.log('❌ Attacker card not found in player hand or parties');
       return;
     }
     
-    console.log(`🎯 Found attacker card in ${attackerFromHand ? 'hand' : 'units'}: ${attackerCard.name}`);
+    console.log(`🎯 Found attacker card in ${attackerFromHand ? 'hand' : 'parties'}: ${attackerCard.name}`);
     
-    // Find target unit (can belong to any player)
-    const targetUnit = gameState.players.flatMap(p => p.units).find(u => u.id === targetUnitId);
-    if (!targetUnit) {
-      console.log('❌ Target unit not found');
+    // Find target party (can belong to any player)
+    const targetParty = gameState.players.flatMap(p => p.parties).find(p => p.id === targetPartyId);
+    if (!targetParty) {
+      console.log('❌ Target party not found');
       return;
     }
     
-    // Cannot attack own units
-    if (targetUnit.playerId === currentPlayer.id) {
-      console.log('❌ Cannot attack own units');
+    // Cannot attack own parties
+    if (targetParty.playerId === currentPlayer.id) {
+      console.log('❌ Cannot attack own parties');
       return;
     }
     
@@ -529,9 +629,9 @@ io.on("connection", (socket) => {
         fromHand: attackerFromHand
       },
       defender: {
-        playerId: targetUnit.playerId
+        playerId: targetParty.playerId
       },
-      targetUnit,
+      targetParty,
       isActive: true,
       status: 'waiting_for_defender'
     };
@@ -583,46 +683,44 @@ io.on("connection", (socket) => {
     // Resolve battle using legacy system for now
     const battleResult = resolveBattle(battleState.attacker.card, defenderCard, false, fromHand);
     
-    // Handle battle results
-    if (battleResult.winner === 'attacker') {
-      console.log('🏆 Attacker wins!');
-      
-      // Set up kidnap choice FIRST, before moving cards to graveyard
-      let availableCards = [...battleState.targetUnit.cards]; // Cards remaining in the target unit
-      
-      // Add the defender card that was just defeated
-      // availableCards.push(defenderCard);
-      
-      if (availableCards.length > 0) {
-        console.log('🎭 Setting up kidnap choice for attacker');
-        gameState.kidnapChoice = {
-          playerId: battleState.attacker.playerId,
-          targetUnit: battleState.targetUnit,
-          availableCards: availableCards,
-          defenderCardUsed: defenderCard, // Always include the defender card used
-          defenderCardFromHand: fromHand // Track where the defender card came from
-        };
+      // Handle battle results
+      if (battleResult.winner === 'attacker') {
+        console.log('🏆 Attacker wins!');
         
-        // Emit kidnap choice event ONLY to the attacker
-        io.to(battleState.attacker.playerId).emit('kidnapChoice', gameState.kidnapChoice);
-      }
-      
-      // Now remove defender card (but don't put it in graveyard yet - kidnap might take it)
+        // Set up kidnap choice FIRST, before moving cards to graveyard
+        let availableCards = [...battleState.targetParty.cards]; // Cards remaining in the target party
+        
+        // Add the defender card that was just defeated
+        // availableCards.push(defenderCard);
+        
+        if (availableCards.length > 0) {
+          console.log('🎭 Setting up kidnap choice for attacker');
+          gameState.kidnapChoice = {
+            playerId: battleState.attacker.playerId,
+            targetParty: battleState.targetParty,
+            availableCards: availableCards,
+            defenderCardUsed: defenderCard, // Always include the defender card used
+            defenderCardFromHand: fromHand // Track where the defender card came from
+          };
+          
+          // Emit kidnap choice event ONLY to the attacker
+          io.to(battleState.attacker.playerId).emit('kidnapChoice', gameState.kidnapChoice);
+        }      // Now remove defender card (but don't put it in graveyard yet - kidnap might take it)
       if (fromHand) {
         defender.hand = defender.hand.filter(c => c.id !== cardId);
         // Don't add to graveyard yet - kidnap choice will handle this
       } else {
-        // Remove card from unit and potentially destroy unit
-        for (const unit of defender.units) {
-          const cardIndex = unit.cards.findIndex(c => c.id === cardId);
+        // Remove card from party and potentially destroy party
+        for (const party of defender.parties) {
+          const cardIndex = party.cards.findIndex(c => c.id === cardId);
           if (cardIndex !== -1) {
-            unit.cards.splice(cardIndex, 1);
-            unit.totalValue -= defenderCard.value;
+            party.cards.splice(cardIndex, 1);
+            party.totalValue -= defenderCard.value;
             // Don't add to graveyard yet - kidnap choice will handle this
             
-            // If unit has no cards left, remove it
-            if (unit.cards.length === 0) {
-              defender.units = defender.units.filter(u => u.id !== unit.id);
+            // If party has no cards left, remove it
+            if (party.cards.length === 0) {
+              defender.parties = defender.parties.filter(p => p.id !== party.id);
             }
             break;
           }
@@ -632,18 +730,18 @@ io.on("connection", (socket) => {
     } else {
       console.log('🏆 Defender wins!');
       
-      // Remove attacker card from its unit
+      // Remove attacker card from its party
       const attacker = gameState.players.find(p => p.id === battleState.attacker.playerId);
-      for (const unit of attacker.units) {
-        const cardIndex = unit.cards.findIndex(c => c.id === battleState.attacker.card.id);
+      for (const party of attacker.parties) {
+        const cardIndex = party.cards.findIndex(c => c.id === battleState.attacker.card.id);
         if (cardIndex !== -1) {
-          unit.cards.splice(cardIndex, 1);
-          unit.totalValue -= battleState.attacker.card.value;
+          party.cards.splice(cardIndex, 1);
+          party.totalValue -= battleState.attacker.card.value;
           attacker.graveyard.push(battleState.attacker.card);
           
-          // If unit has no cards left, remove it
-          if (unit.cards.length === 0) {
-            attacker.units = attacker.units.filter(u => u.id !== unit.id);
+          // If party has no cards left, remove it
+          if (party.cards.length === 0) {
+            attacker.parties = attacker.parties.filter(p => p.id !== party.id);
           }
           break;
         }
@@ -665,7 +763,7 @@ io.on("connection", (socket) => {
     
     // Only end turn if there's no kidnap choice pending
     if (!gameState.kidnapChoice) {
-      advanceTurn(gameState);
+      advanceTurn(gameState, roomId);
     } else {
       // Return to play phase to allow kidnap choice handling
       gameState.phase = 'play';
@@ -674,8 +772,8 @@ io.on("connection", (socket) => {
     broadcastGameState(io, roomId, gameState);
   });
 
-  socket.on("reinforceUnit", ({ roomId, cardId, unitId }) => {
-    console.log(`🔧 Reinforcement attempted - Room: ${roomId}, Card: ${cardId}, Unit: ${unitId}`);
+  socket.on("reinforceParty", ({ roomId, cardId, partyId }) => {
+    console.log(`🔧 Reinforcement attempted - Room: ${roomId}, Card: ${cardId}, Party: ${partyId}`);
     
     const room = gameRooms[roomId];
     if (!room || !room.gameState) {
@@ -731,6 +829,23 @@ io.on("connection", (socket) => {
       unit.totalValue += card.value;
       
       console.log(`✅ Card ${card.name} successfully added to unit. New unit value: ${unit.totalValue}`);
+      
+      // Check win condition after reinforcement
+      const winCondition = checkWinCondition(gameState.players);
+      if (winCondition.finalTurnTriggered && !gameState.finalTurnTrigger) {
+        gameState.finalTurnTrigger = winCondition.triggeringPlayerId;
+        // Give all OTHER players one turn each to respond
+        gameState.finalTurnRemaining = gameState.players.length - 1;
+        gameState.winningScore = winCondition.winningScore;
+        
+        console.log(`🚨 Final round triggered by reinforcement - Player: ${winCondition.winner.name}, Score: ${winCondition.winningScore}, Turns remaining: ${gameState.finalTurnRemaining}`);
+        
+        // Notify all players that final round has started
+        io.to(roomId).emit('finalRoundStarted', {
+          triggeringPlayer: winCondition.winner.name,
+          score: winCondition.winningScore
+        });
+      }
       
       broadcastGameState(io, roomId, gameState);
     } else {
@@ -804,7 +919,7 @@ io.on("connection", (socket) => {
     gameState.kidnapChoice = null;
     
     // End turn after kidnap is complete
-    advanceTurn(gameState);
+    advanceTurn(gameState, roomId);
     
     broadcastGameState(io, roomId, gameState);
   });
@@ -841,9 +956,97 @@ io.on("connection", (socket) => {
     gameState.kidnapChoice = null;
     
     // End turn after kidnap is skipped
-    advanceTurn(gameState);
+    advanceTurn(gameState, roomId);
     
     broadcastGameState(io, roomId, gameState);
+  });
+
+  socket.on("activateAbility", async ({ roomId, cardId, targetSelections }) => {
+    console.log(`🎯 Manual ability activation - Room: ${roomId}, Card: ${cardId}`);
+    
+    const room = gameRooms[roomId];
+    if (!room || !room.gameState) {
+      console.log('❌ No room or game state found');
+      return;
+    }
+    
+    const gameState = room.gameState;
+    const currentPlayer = gameState.players[gameState.currentPlayerIndex];
+    
+    if (currentPlayer.id !== socket.id || gameState.phase !== 'play') {
+      console.log('❌ Not current player or wrong phase');
+      return;
+    }
+
+    try {
+      const { GameAbilitySystem } = await import('./abilities/battleIntegration.js');
+      const abilitySystem = new GameAbilitySystem(gameState);
+      
+      const result = await abilitySystem.activatedManager.activateAbility(
+        cardId, 
+        currentPlayer.id, 
+        targetSelections || {}
+      );
+      
+      if (result.success) {
+        console.log('✅ Ability activated successfully');
+        
+        // Handle any player input requirements from the ability effect
+        if (result.requiresPlayerInput && result.requiresPlayerInput.length > 0) {
+          result.requiresPlayerInput.forEach(prompt => {
+            io.to(currentPlayer.id).emit('abilityPrompt', {
+              type: 'manualActivation',
+              cardId: cardId,
+              effect: prompt.effect,
+              options: prompt.result.options || []
+            });
+          });
+        }
+        
+        // Emit success message to player
+        socket.emit('abilityActivated', {
+          cardId: cardId,
+          results: result.results
+        });
+        
+        broadcastGameState(io, roomId, gameState);
+      } else {
+        console.log(`❌ Ability activation failed: ${result.error}`);
+        socket.emit('abilityActivationFailed', {
+          cardId: cardId,
+          error: result.error
+        });
+      }
+    } catch (error) {
+      console.error('💥 Error during ability activation:', error);
+      socket.emit('abilityActivationFailed', {
+        cardId: cardId,
+        error: 'Server error during ability activation'
+      });
+    }
+  });
+
+  socket.on("getAvailableAbilities", ({ roomId }) => {
+    const room = gameRooms[roomId];
+    if (!room || !room.gameState) return;
+    
+    const gameState = room.gameState;
+    const currentPlayer = gameState.players[gameState.currentPlayerIndex];
+    
+    if (currentPlayer.id !== socket.id) return;
+    
+    try {
+      import('./abilities/battleIntegration.js').then(({ GameAbilitySystem }) => {
+        const abilitySystem = new GameAbilitySystem(gameState);
+        const availableAbilities = abilitySystem.getAvailableAbilities(currentPlayer.id);
+        
+        socket.emit('availableAbilities', {
+          abilities: availableAbilities
+        });
+      });
+    } catch (error) {
+      console.error('💥 Error getting available abilities:', error);
+    }
   });
 
   socket.on("endTurn", ({ roomId }) => {
@@ -855,7 +1058,7 @@ io.on("connection", (socket) => {
     
     if (currentPlayer.id !== socket.id) return;
     
-    advanceTurn(gameState);
+    advanceTurn(gameState, roomId);
     broadcastGameState(io, roomId, gameState);
   });
 

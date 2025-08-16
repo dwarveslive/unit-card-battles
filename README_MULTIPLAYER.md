@@ -70,7 +70,8 @@ The frontend will start on `http://localhost:8080`
 ### Win Condition
 
 - Reach 50+ total unit value to trigger the final turn
-- Highest score after final turn wins
+- If the triggering player doesn't have 50+ points by their next turn, the game continues
+- If another player reaches 50+ points and the original triggering player loses their 50+ point lead, then the game continues until the new player who triggered the last round has their turn.
 - Score = Unit values - Graveyard penalty
 
 ## Game Rules

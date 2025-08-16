@@ -354,6 +354,12 @@ export class WebSocketService {
     }
   }
 
+  onGameEnded(callback: (data: any) => void) {
+    if (this.socket) {
+      this.socket.on('gameEnded', callback);
+    }
+  }
+
   getCurrentRoomId(): string | null {
     return this.currentRoomId;
   }

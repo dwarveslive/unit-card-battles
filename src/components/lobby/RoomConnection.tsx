@@ -92,7 +92,7 @@ export const RoomConnection: React.FC<RoomConnectionProps> = ({
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-3 mb-4">
             <Gamepad2 className="w-12 h-12 text-primary" />
-            <h1 className="text-4xl font-bold text-foreground">Unit Card Battles</h1>
+            <h1 className="text-4xl font-bold text-foreground">Party Card Battles</h1>
           </div>
           <p className="text-lg text-muted-foreground">Join the battle in multiplayer card combat</p>
         </div>

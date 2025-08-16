@@ -39,7 +39,7 @@ export const GameLobby: React.FC<GameLobbyProps> = ({
   const shareRoom = useCallback(() => {
     if (navigator.share) {
       navigator.share({
-        title: 'Unit Card Battles',
+        title: 'Party Card Battles',
         text: `Join my game room!`,
         url: `Room ID: ${roomId}`
       });
